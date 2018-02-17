@@ -47,7 +47,7 @@ describe('MySqlDriver', () => {
   });
 
   describe('when db conn succeeds', () => {
-    let connection, query, res, table, listeners;
+    let connection, query, res, from, listeners;
 
     beforeEach(() => {
       connection = jasmine.createSpyObj('connection', ['pause', 'query', 'release', 'resume']);
@@ -57,7 +57,7 @@ describe('MySqlDriver', () => {
       connection.query.and.returnValue(query);
       pool.getConnection.and.callFake(cb => cb(null, connection));
       res = jasmine.createSpyObj('res', ['end', 'write', 'writeHead']);
-      table = 'organizations';
+      from = 'organizations';
     });
 
     describe('with a basic query', () => {
@@ -71,7 +71,7 @@ describe('MySqlDriver', () => {
           status: {table: 'organizations'},
           quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`}
         };
-        sqlDriver.writeList({table, entity})(null, res);
+        sqlDriver.writeList({from, entity})(null, res);
       });
 
       it('sets status and writes headers', () => {
@@ -83,7 +83,7 @@ describe('MySqlDriver', () => {
       });
 
       it('queries the database', () => {
-        expect(connection.query).toHaveBeenCalledWith({sql: `SELECT * FROM ${table}`, nestTables: true});
+        expect(connection.query).toHaveBeenCalledWith({sql: `SELECT * FROM \`${from}\``, nestTables: true});
       });
 
       it('listens for results', () => {
@@ -117,7 +117,7 @@ describe('MySqlDriver', () => {
         });
 
         it('writes the row', () => {
-          expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: undefined, table, row});
+          expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: undefined, table: from, row});
           expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
           expect(res.write).toHaveBeenCalledWith('some-data', jasmine.any(Function));
         });
@@ -155,7 +155,7 @@ describe('MySqlDriver', () => {
           });
 
           it('writes the row', () => {
-            expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: ',', table, row: row2});
+            expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: ',', table: from, row: row2});
             expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
             expect(res.write).toHaveBeenCalledWith('some-other-data', jasmine.any(Function));
           });
@@ -185,19 +185,19 @@ describe('MySqlDriver', () => {
       });
     });
 
-    describe('with joins', () => {
-      let foreignTable, key, foreignKey;
+    describe('with leftJoins', () => {
+      let foreignTable, fromKey, foreignKey;
 
       beforeEach(() => {
         foreignTable = 'quota_definitions';
-        key = 'quota_definition_id';
+        fromKey = 'quota_definition_id';
         foreignKey = 'id';
-        sqlDriver.writeList({table, joins: [{foreignTable, key, foreignKey}]})(null, res);
+        sqlDriver.writeList({from, leftJoins: [{foreignTable, fromKey, foreignKey}]})(null, res);
       });
 
       it('queries the database', () => {
         expect(connection.query).toHaveBeenCalledWith({
-          sql: `SELECT * FROM ${table} LEFT JOIN ${foreignTable} ON ${table}.${key} = ${foreignTable}.${foreignKey}`,
+          sql: `SELECT * FROM \`${from}\` LEFT JOIN \`${foreignTable}\` ON \`${from}\`.\`${fromKey}\` = \`${foreignTable}\`.\`${foreignKey}\``,
           nestTables: true
         });
       });

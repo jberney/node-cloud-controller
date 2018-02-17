@@ -8,8 +8,8 @@ module.exports = ({
     app.get('/v2/info', (req, res) => res.send(info));
 
     app.get('/v2/organizations', writeList({
-      table: 'organizations',
-      joins: [{foreignTable: 'quota_definitions', key: 'quota_definition_id', foreignKey: 'id'}],
+      from: 'organizations',
+      leftJoins: [{foreignTable: 'quota_definitions', fromKey: 'quota_definition_id', foreignKey: 'id'}],
       entity: {
         name: {table: 'organizations'},
         billing_enabled: {table: 'organizations', type: boolean},
@@ -25,7 +25,7 @@ module.exports = ({
     }));
 
     app.get('/v2/organizations/:guid/spaces', writeList({
-      table: 'spaces',
+      from: 'spaces',
       entity: {
         name: {table: 'spaces'}
       }

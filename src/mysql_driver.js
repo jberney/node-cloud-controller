@@ -1,5 +1,6 @@
 const mysql = require('mysql');
 const ServerHelper = require('./server_helper');
+const queryBuilder = require('./query_builder');
 
 module.exports = ({
   new(config) {
@@ -9,16 +10,18 @@ module.exports = ({
       if (e) throw e;
       cb(connection);
     });
-    const leftJoin = ({table}) => ({foreignTable, key, foreignKey}) => ` LEFT JOIN ${foreignTable} ON ${table}.${key} = ${foreignTable}.${foreignKey}`;
     const pauseWriteResume = ({connection, res}) => cb => (connection.pause(), cb(data => res.write(data, () => connection.resume())));
     const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, res})(ServerHelper.writeRow(rest));
 
-    const writeList = ({table, joins = [], entity}) => (req, res) => getConnection(connection => {
+    const writeList = ({from, leftJoins = [], entity}) => (req, res) => getConnection(connection => {
       res.writeHead(200, {'Content-Type': 'application/json'});
       res.write('{"resources":[');
       let prefix;
-      connection.query({sql: `SELECT * FROM ${table}${joins.map(leftJoin({table}))}`, nestTables: true})
-        .on('result', row => (writeRow({connection, res, entity, prefix, table, row}), prefix = ','))
+      const sql = queryBuilder.select().from(from)
+        .leftJoins(leftJoins)
+        .build();
+      connection.query({sql, nestTables: true})
+        .on('result', row => (writeRow({connection, res, entity, prefix, table: from, row}), prefix = ','))
         .on('end', () => (connection.release(), res.write(']}'), res.end()));
     });
 
