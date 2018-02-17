@@ -9,7 +9,6 @@ module.exports = ({
 
     app.get('/v2/organizations', writeList({
       from: 'organizations',
-      leftJoins: [{foreignTable: 'quota_definitions', fromKey: 'quota_definition_id', foreignKey: 'id'}],
       entity: {
         name: {},
         billing_enabled: {type: 'boolean'},
