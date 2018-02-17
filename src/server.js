@@ -12,7 +12,7 @@ module.exports = ({
       leftJoins: [{foreignTable: 'quota_definitions', fromKey: 'quota_definition_id', foreignKey: 'id'}],
       entity: {
         name: {},
-        billing_enabled: { type: boolean},
+        billing_enabled: {type: boolean},
         quota_definition_guid: {column: 'guid', table: 'quota_definitions'},
         status: {},
         quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`},
