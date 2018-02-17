@@ -21,7 +21,7 @@ module.exports = ({
         .leftJoins(leftJoins)
         .build();
       connection.query({sql, nestTables: true})
-        .on('result', row => (writeRow({connection, res, entity, prefix, table: from, row}), prefix = ','))
+        .on('result', row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ','))
         .on('end', () => (connection.release(), res.write(']}'), res.end()));
     });
 

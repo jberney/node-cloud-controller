@@ -1,5 +1,5 @@
 describe('ServerHelper', () => {
-  const table = 'organizations';
+  const from = 'organizations';
   let ServerHelper;
 
   beforeEach(() => {
@@ -11,23 +11,13 @@ describe('ServerHelper', () => {
 
     describe('when zero', () => {
       it('returns false', () => {
-        expect(ServerHelper.boolean({table, column})({[table]: {[column]: 0}})).toBe(false);
+        expect(ServerHelper.boolean({from, column})({[from]: {[column]: 0}})).toBe(false);
       });
     });
 
     describe('when one', () => {
       it('returns false', () => {
-        expect(ServerHelper.boolean({table, column})({[table]: {[column]: 1}})).toBe(true);
-      });
-    });
-  });
-
-  describe('metadata', () => {
-    const guid = 'some-org-guid', created_at = 'long ago', updated_at = 'recently';
-
-    it('returns metadata', () => {
-      expect(ServerHelper.metadata({table, guid, created_at, updated_at})).toEqual({
-        guid, url: '/v2/organizations/some-org-guid', created_at, updated_at
+        expect(ServerHelper.boolean({from, column})({[from]: {[column]: 1}})).toBe(true);
       });
     });
   });
@@ -36,7 +26,7 @@ describe('ServerHelper', () => {
     let returned;
 
     beforeEach(() => {
-      returned = ServerHelper.subObjectUrls({table, foreignTables: ['foreign_table_1', 'foreign_table_2']});
+      returned = ServerHelper.subObjectUrls({from, foreignTables: ['foreign_table_1', 'foreign_table_2']});
     });
 
     it('returns object mapping foreign table url keys to url-generating functions', () => {
@@ -47,8 +37,8 @@ describe('ServerHelper', () => {
     });
 
     it('returns object with functions that generate urls', () => {
-      expect(returned.foreign_table_1_url.value({[table]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_1');
-      expect(returned.foreign_table_2_url.value({[table]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_2');
+      expect(returned.foreign_table_1_url.value({[from]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_1');
+      expect(returned.foreign_table_2_url.value({[from]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_2');
     });
   });
 
@@ -57,10 +47,10 @@ describe('ServerHelper', () => {
 
     beforeEach(() => {
       entity = {
-        name: {table},
-        billing_enabled: {table: 'organizations', type: ServerHelper.boolean},
+        name: {},
+        billing_enabled: {type: ServerHelper.boolean},
         quota_definition_guid: {column: 'guid', table: 'quota_definitions'},
-        status: {table: 'organizations'},
+        status: {},
         quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`}
       };
       row = {
@@ -80,7 +70,7 @@ describe('ServerHelper', () => {
 
     describe('without prefix', () => {
       beforeEach(() => {
-        ServerHelper.writeRow({entity, row, table})(write);
+        ServerHelper.writeRow({entity, row, from})(write);
       });
 
       it('writes row', () => {
@@ -104,7 +94,7 @@ describe('ServerHelper', () => {
 
     describe('with prefix', () => {
       beforeEach(() => {
-        ServerHelper.writeRow({entity, row, table, prefix: ','})(write);
+        ServerHelper.writeRow({entity, row, from, prefix: ','})(write);
       });
 
       it('writes prefix and row', () => {

@@ -1,26 +1,31 @@
-const boolean = ({table, column}) => row => !!row[table][column];
-const raw = ({table, column}) => row => row[table][column];
+const boolean = ({from, column}) => row => !!row[from][column];
+const raw = ({from, column}) => row => row[from][column];
 
-const metadata = ({table, guid, created_at, updated_at}) => ({
+const subObjectUrls = ({from, foreignTables}) => {
+  const obj = {};
+  foreignTables.forEach(foreignTable => obj[`${foreignTable}_url`] = {value: row => `/v2/${from}/${row[from].guid}/${foreignTable}`});
+  return obj;
+};
+
+const newMetadata = ({guid, from, created_at, updated_at}) => ({
   guid,
-  url: `/v2/${table}/${guid}`,
+  url: `/v2/${from}/${guid}`,
   created_at,
   updated_at
 });
 
-const subObjectUrls = ({table, foreignTables}) => {
+const newEntity = ({entity, from, row}) => {
   const obj = {};
-  foreignTables.forEach(foreignTable => obj[`${foreignTable}_url`] = {value: row => `/v2/${table}/${row[table].guid}/${foreignTable}`});
+  Object.entries(entity)
+    .map(([key, {table, column, value, type = raw}]) =>
+      [key, value || type({from: table || from, column: column || key})])
+    .forEach(([key, value]) => obj[key] = value(row));
   return obj;
 };
 
-const entityEntries = entity => Object.entries(entity)
-  .map(([key, {table, column, value, type = raw}]) => [key, value || type({table, column: column || key})]);
+const writeRow = ({prefix = '', row, from, entity}) => write => write(`${prefix}${JSON.stringify({
+  metadata: newMetadata({...row[from], from}),
+  entity: newEntity({entity, from, row})
+})}`);
 
-const writeRow = ({entity: e, row, prefix = '', table}) => write => {
-  const entity = {};
-  entityEntries(e).forEach(([key, value]) => entity[key] = value(row));
-  write(`${prefix}${JSON.stringify({metadata: metadata({table, ...row[table]}), entity})}`);
-};
-
-module.exports = {boolean, metadata, subObjectUrls, writeRow};
+module.exports = {boolean, subObjectUrls, writeRow};

@@ -65,10 +65,10 @@ describe('MySqlDriver', () => {
 
       beforeEach(() => {
         entity = {
-          name: {table: 'organizations'},
-          billing_enabled: {table: 'organizations', type: ServerHelper.boolean},
+          name: {},
+          billing_enabled: {type: ServerHelper.boolean},
           quota_definition_guid: {column: 'guid', table: 'quota_definitions'},
-          status: {table: 'organizations'},
+          status: {},
           quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`}
         };
         sqlDriver.writeList({from, entity})(null, res);
@@ -117,7 +117,7 @@ describe('MySqlDriver', () => {
         });
 
         it('writes the row', () => {
-          expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: undefined, table: from, row});
+          expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: undefined, from, row});
           expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
           expect(res.write).toHaveBeenCalledWith('some-data', jasmine.any(Function));
         });
@@ -155,7 +155,7 @@ describe('MySqlDriver', () => {
           });
 
           it('writes the row', () => {
-            expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: ',', table: from, row: row2});
+            expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: ',', from, row: row2});
             expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
             expect(res.write).toHaveBeenCalledWith('some-other-data', jasmine.any(Function));
           });
