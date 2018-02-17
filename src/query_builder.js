@@ -1,13 +1,9 @@
 const mysql = require('mysql');
 
-const QueryBuilder = {
-  select: () => Select()
-};
-
 const leftJoin = ({from, foreignTable, fromKey, foreignKey}) =>
   mysql.format('LEFT JOIN ?? ON ??.?? = ??.??', [foreignTable, from, fromKey, foreignTable, foreignKey]);
 
-const Select = (state = {leftJoins: []}) => ({
+const select = (state = {leftJoins: []}) => ({
   build: () => {
     const {from, leftJoins} = state;
     return [
@@ -15,8 +11,8 @@ const Select = (state = {leftJoins: []}) => ({
       leftJoins.reduce((memo, join) => `${memo} ${leftJoin({from, ...join})}`, '')
     ].join('');
   },
-  from: from => Select({...state, from}),
-  leftJoins: joins => Select(({...state, leftJoins: [...state.leftJoins, ...joins]}))
+  from: from => select({...state, from}),
+  leftJoins: joins => select(({...state, leftJoins: [...state.leftJoins, ...joins]}))
 });
 
-module.exports = QueryBuilder;
+module.exports = {select};
