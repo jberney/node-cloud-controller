@@ -9,7 +9,7 @@ const leftJoin = ({from, foreignTable, fromKey, foreignKey}) =>
 
 const Select = (state = {leftJoins: []}) => ({
   build: () => {
-    const {from, leftJoins = []} = state;
+    const {from, leftJoins} = state;
     return [
       mysql.format('SELECT * FROM ??', [from]),
       leftJoins.reduce((memo, join) => `${memo} ${leftJoin({from, ...join})}`, '')
