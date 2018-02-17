@@ -1,5 +1,5 @@
 const express = require('express');
-const {boolean, subObjectUrls} = require('./server_helper');
+const {subObjectUrls} = require('./server_helper');
 
 module.exports = ({
   new({writeList}, info) {
@@ -12,7 +12,7 @@ module.exports = ({
       leftJoins: [{foreignTable: 'quota_definitions', fromKey: 'quota_definition_id', foreignKey: 'id'}],
       entity: {
         name: {},
-        billing_enabled: {type: boolean},
+        billing_enabled: {type: 'boolean'},
         quota_definition_guid: {foreignTable: 'quota_definitions', column: 'guid'},
         status: {},
         quota_definition_url: {

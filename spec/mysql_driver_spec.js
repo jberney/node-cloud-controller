@@ -66,7 +66,7 @@ describe('MySqlDriver', () => {
       beforeEach(() => {
         entity = {
           name: {},
-          billing_enabled: {type: ServerHelper.boolean},
+          billing_enabled: {type: 'boolean'},
           quota_definition_guid: {foreignTable: 'quota_definitions', column: 'guid'},
           status: {},
           quota_definition_url: {

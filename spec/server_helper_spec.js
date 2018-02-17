@@ -6,22 +6,6 @@ describe('ServerHelper', () => {
     ServerHelper = require('../src/server_helper');
   });
 
-  describe('boolean', () => {
-    const column = 'some-column';
-
-    describe('when zero', () => {
-      it('returns false', () => {
-        expect(ServerHelper.boolean({from, column, row: {[from]: {[column]: 0}}})).toBe(false);
-      });
-    });
-
-    describe('when one', () => {
-      it('returns false', () => {
-        expect(ServerHelper.boolean({from, column, row: {[from]: {[column]: 1}}})).toBe(true);
-      });
-    });
-  });
-
   describe('subObjectUrls', () => {
     let returned;
 
@@ -43,7 +27,7 @@ describe('ServerHelper', () => {
     beforeEach(() => {
       entity = {
         name: {},
-        billing_enabled: {type: ServerHelper.boolean},
+        billing_enabled: {type: 'boolean'},
         quota_definition_guid: {foreignTable: 'quota_definitions', column: 'guid'},
         status: {},
         quota_definition_url: {
