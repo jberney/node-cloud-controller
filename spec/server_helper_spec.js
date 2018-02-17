@@ -11,13 +11,13 @@ describe('ServerHelper', () => {
 
     describe('when zero', () => {
       it('returns false', () => {
-        expect(ServerHelper.boolean({from, column})({[from]: {[column]: 0}})).toBe(false);
+        expect(ServerHelper.boolean({from, column, row: {[from]: {[column]: 0}}})).toBe(false);
       });
     });
 
     describe('when one', () => {
       it('returns false', () => {
-        expect(ServerHelper.boolean({from, column})({[from]: {[column]: 1}})).toBe(true);
+        expect(ServerHelper.boolean({from, column, row: {[from]: {[column]: 1}}})).toBe(true);
       });
     });
   });
@@ -31,14 +31,9 @@ describe('ServerHelper', () => {
 
     it('returns object mapping foreign table url keys to url-generating functions', () => {
       expect(returned).toEqual({
-        foreign_table_1_url: {value: jasmine.any(Function)},
-        foreign_table_2_url: {value: jasmine.any(Function)}
+        foreign_table_1_url: {column: 'guid', format: `/v2/${from}/%s/foreign_table_1`},
+        foreign_table_2_url: {column: 'guid', format: `/v2/${from}/%s/foreign_table_2`}
       });
-    });
-
-    it('returns object with functions that generate urls', () => {
-      expect(returned.foreign_table_1_url.value({[from]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_1');
-      expect(returned.foreign_table_2_url.value({[from]: {guid: 'some-org-guid'}})).toBe('/v2/organizations/some-org-guid/foreign_table_2');
     });
   });
 
@@ -49,9 +44,13 @@ describe('ServerHelper', () => {
       entity = {
         name: {},
         billing_enabled: {type: ServerHelper.boolean},
-        quota_definition_guid: {column: 'guid', table: 'quota_definitions'},
+        quota_definition_guid: {foreignTable: 'quota_definitions', column: 'guid'},
         status: {},
-        quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`}
+        quota_definition_url: {
+          foreignTable: 'quota_definitions',
+          column: 'guid',
+          format: '/v2/quota_definitions/%s'
+        }
       };
       row = {
         organizations: {

@@ -67,9 +67,13 @@ describe('MySqlDriver', () => {
         entity = {
           name: {},
           billing_enabled: {type: ServerHelper.boolean},
-          quota_definition_guid: {column: 'guid', table: 'quota_definitions'},
+          quota_definition_guid: {foreignTable: 'quota_definitions', column: 'guid'},
           status: {},
-          quota_definition_url: {value: ({quota_definitions: {guid}}) => `/v2/quota_definitions/${guid}`}
+          quota_definition_url: {
+            foreignTable: 'quota_definitions',
+            column: 'guid',
+            format: '/v2/quota_definitions/%s'
+          }
         };
         sqlDriver.writeList({from, entity})(null, res);
       });
