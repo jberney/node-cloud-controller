@@ -62,11 +62,7 @@ describe('MySqlDriver', () => {
 
     describe('with a basic query', () => {
       beforeEach(() => {
-        entity = {
-          name: {},
-          billing_enabled: {type: 'boolean'},
-          status: {}
-        };
+        entity = {name: {}, billing_enabled: {type: 'boolean'}, status: {}};
         sqlDriver.writeList({from, entity})(null, res);
       });
 
@@ -94,14 +90,7 @@ describe('MySqlDriver', () => {
         let row;
 
         beforeEach(() => {
-          row = {
-            organizations: {
-              guid: 'some-org-guid'
-            },
-            quota_definitions: {
-              guid: 'some-quota-definition-guid'
-            }
-          };
+          row = {organizations: {guid: 'some-org-guid'}, quota_definitions: {guid: 'some-quota-definition-guid'}};
           writeRow.and.callFake(cb => cb('some-data'));
           res.write.and.callFake((data, cb) => cb());
 
@@ -126,14 +115,7 @@ describe('MySqlDriver', () => {
           let row2;
 
           beforeEach(() => {
-            row2 = {
-              organizations: {
-                guid: 'some-other-org-guid'
-              },
-              quota_definitions: {
-                guid: 'some-other-quota-definition-guid'
-              }
-            };
+            row2 = {organizations: {guid: 'some-other-org-guid'}};
             writeRow.and.callFake(cb => cb('some-other-data'));
             res.write.and.callFake((data, cb) => cb());
 
@@ -196,10 +178,6 @@ describe('MySqlDriver', () => {
         sqlDriver.writeList({from, entity})(null, res);
       });
 
-      it('sets status and writes headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
       it('writes the resources key', () => {
         expect(res.write).toHaveBeenCalledWith('{"resources":[');
       });
@@ -211,101 +189,21 @@ describe('MySqlDriver', () => {
         });
       });
 
-      it('listens for results', () => {
-        expect(query.on).toHaveBeenCalledWith('result', jasmine.any(Function));
-      });
-
-      it('listens for the end', () => {
-        expect(query.on).toHaveBeenCalledWith('end', jasmine.any(Function));
-      });
-
       describe('when a result is emitted', () => {
         let row;
 
         beforeEach(() => {
-          row = {
-            organizations: {
-              guid: 'some-org-guid'
-            },
-            quota_definitions: {
-              guid: 'some-quota-definition-guid'
-            }
-          };
+          row = {organizations: {guid: 'some-org-guid'}, quota_definitions: {guid: 'some-quota-definition-guid'}};
           writeRow.and.callFake(cb => cb('some-data'));
           res.write.and.callFake((data, cb) => cb());
 
           listeners.result(row);
         });
 
-        it('pauses the sql connection', () => {
-          expect(connection.pause).toHaveBeenCalledWith();
-        });
-
         it('writes the row', () => {
           expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: undefined, from, row});
           expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
           expect(res.write).toHaveBeenCalledWith('some-data', jasmine.any(Function));
-        });
-
-        it('resumes the sql connection', () => {
-          expect(connection.resume).toHaveBeenCalledWith();
-        });
-
-        describe('when another result is emitted', () => {
-          let row2;
-
-          beforeEach(() => {
-            row2 = {
-              organizations: {
-                guid: 'some-other-org-guid'
-              },
-              quota_definitions: {
-                guid: 'some-other-quota-definition-guid'
-              }
-            };
-            writeRow.and.callFake(cb => cb('some-other-data'));
-            res.write.and.callFake((data, cb) => cb());
-
-            connection.pause.calls.reset();
-            ServerHelper.writeRow.calls.reset();
-            writeRow.calls.reset();
-            res.write.calls.reset();
-            connection.resume.calls.reset();
-
-            listeners.result(row2);
-          });
-
-          it('pauses the sql connection', () => {
-            expect(connection.pause).toHaveBeenCalledWith();
-          });
-
-          it('writes the row', () => {
-            expect(ServerHelper.writeRow).toHaveBeenCalledWith({entity, prefix: ',', from, row: row2});
-            expect(writeRow).toHaveBeenCalledWith(jasmine.any(Function));
-            expect(res.write).toHaveBeenCalledWith('some-other-data', jasmine.any(Function));
-          });
-
-          it('resumes the sql connection', () => {
-            expect(connection.resume).toHaveBeenCalledWith();
-          });
-        });
-      });
-
-      describe('when the end is emitted', () => {
-        beforeEach(() => {
-          listeners.end();
-        });
-
-        it('releases the connection', () => {
-          expect(connection.release).toHaveBeenCalledWith();
-        });
-
-        it('writes the end of the json', () => {
-          expect(res.write).toHaveBeenCalledWith(']}');
-        });
-
-        it('ends the response', () => {
-          expect(res.end).toHaveBeenCalledWith();
         });
       });
     });
