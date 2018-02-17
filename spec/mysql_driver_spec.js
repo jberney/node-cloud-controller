@@ -185,14 +185,14 @@ describe('MySqlDriver', () => {
       let foreignTable;
 
       beforeEach(() => {
-        foreignTable = 'quota_definitions',
-          entity = {
-            name: {},
-            billing_enabled: {type: 'boolean'},
-            quota_definition_guid: {foreignTable, column: 'guid'},
-            status: {},
-            quota_definition_url: {foreignTable, column: 'guid', format: '/v2/quota_definitions/%s'}
-          };
+        foreignTable = 'quota_definitions';
+        entity = {
+          name: {},
+          billing_enabled: {type: 'boolean'},
+          quota_definition_guid: {foreignTable, column: 'guid'},
+          status: {},
+          quota_definition_url: {foreignTable, column: 'guid', format: '/v2/quota_definitions/%s'}
+        };
         sqlDriver.writeList({from, entity})(null, res);
       });
 

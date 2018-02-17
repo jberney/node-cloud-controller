@@ -6,7 +6,7 @@ const getConnection = (pool, cb) => pool.getConnection((e, connection) => {
   if (e) throw e;
   cb(connection);
 });
-const leftJoins = ({from, entity}) => Object.values(entity)
+const leftJoins = entity => Object.values(entity)
   .filter(({foreignTable}) => foreignTable)
   .reduce((memo, {foreignTable}) => memo.indexOf(foreignTable) === -1 ? [...memo, foreignTable] : memo, [])
   .map(foreignTable => ({foreignTable, fromKey: `${foreignTable.replace(/s$/, '')}_id`, foreignKey: 'id'}));
@@ -22,7 +22,7 @@ module.exports = ({
       res.write('{"resources":[');
       let prefix;
       const sql = queryBuilder.select().from(from)
-        .leftJoins(leftJoins({from, entity}))
+        .leftJoins(leftJoins(entity))
         .build();
       connection.query({sql, nestTables: true})
         .on('result', row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ','))
