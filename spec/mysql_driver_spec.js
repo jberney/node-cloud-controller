@@ -1,5 +1,5 @@
 describe('MySqlDriver', () => {
-  let ServerHelper, writeRow, mysql, pool, MySqlDriver, config, sqlDriver;
+  let ServerHelper, writeRow, mysql, pool, MySqlDriver, entity, entities, config, sqlDriver;
 
   beforeEach(() => {
     ServerHelper = require('../src/server_helper');
@@ -12,9 +12,11 @@ describe('MySqlDriver', () => {
     pool = jasmine.createSpyObj('pool', ['getConnection']);
     spyOn(mysql, 'createPool').and.returnValue(pool);
 
+    entity = {name: {}, billing_enabled: {type: 'boolean'}, status: {}};
+    entities = {organizations: entity};
     config = {host: 'some-host', user: 'some-user', password: 'some-password', database: 'some-db'};
 
-    sqlDriver = MySqlDriver.new(config);
+    sqlDriver = MySqlDriver.new({entities, config});
   });
 
   it('creates a pool', () => {
@@ -47,7 +49,7 @@ describe('MySqlDriver', () => {
   });
 
   describe('when db conn succeeds', () => {
-    let connection, query, listeners, res, from, entity;
+    let connection, query, listeners, res, from;
 
     beforeEach(() => {
       connection = jasmine.createSpyObj('connection', ['pause', 'query', 'release', 'resume']);
@@ -62,8 +64,7 @@ describe('MySqlDriver', () => {
 
     describe('with a basic query', () => {
       beforeEach(() => {
-        entity = {name: {}, billing_enabled: {type: 'boolean'}, status: {}};
-        sqlDriver.writeList({from, entity})(null, res);
+        sqlDriver.writeList(from)(null, res);
       });
 
       it('sets status and writes headers', () => {
@@ -175,7 +176,11 @@ describe('MySqlDriver', () => {
           status: {},
           quota_definition_url: {foreignTable, column: 'guid', format: '/v2/quota_definitions/%s'}
         };
-        sqlDriver.writeList({from, entity})(null, res);
+        entities = {organizations: entity};
+        config = {host: 'some-host', user: 'some-user', password: 'some-password', database: 'some-db'};
+
+        sqlDriver = MySqlDriver.new({entities, config});
+        sqlDriver.writeList(from)(null, res);
       });
 
       it('writes the resources key', () => {

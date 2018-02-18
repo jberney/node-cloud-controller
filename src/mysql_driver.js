@@ -14,12 +14,13 @@ const pauseWriteResume = ({connection, res}) => cb => (connection.pause(), cb(da
 const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, res})(ServerHelper.writeRow(rest));
 
 module.exports = ({
-  new(config) {
+  new({entities, config}) {
     const pool = mysql.createPool(config);
 
-    const writeList = ({from, entity}) => (req, res) => getConnection(pool, connection => {
+    const writeList = from => (req, res) => getConnection(pool, connection => {
       res.writeHead(200, {'Content-Type': 'application/json'});
       res.write('{"resources":[');
+      const entity = entities[from];
       let prefix;
       const sql = queryBuilder.select().from(from)
         .leftJoins(leftJoins(entity))
