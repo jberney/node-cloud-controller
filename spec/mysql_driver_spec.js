@@ -24,6 +24,19 @@ describe('MySqlDriver', () => {
   });
 
   describe('writeList', () => {
+    describe('when type is invalid', () => {
+      let next;
+
+      beforeEach(() => {
+        next = jasmine.createSpy('next');
+        sqlDriver.writeList({params: {}}, null, next);
+      });
+
+      it('calls next', () => {
+        expect(next).toHaveBeenCalledWith();
+      });
+    });
+
     describe('when db conn fails', () => {
       let error, caught;
 
@@ -32,7 +45,7 @@ describe('MySqlDriver', () => {
         pool.getConnection.and.callFake(cb => cb(error));
 
         try {
-          sqlDriver.writeList({})();
+          sqlDriver.writeList({params: {type: 'organizations'}});
         } catch (e) {
           caught = e;
         }
@@ -64,7 +77,7 @@ describe('MySqlDriver', () => {
 
     describe('with a basic query', () => {
       beforeEach(() => {
-        sqlDriver.writeList(from)(null, res);
+        sqlDriver.writeList({params: {type: 'organizations'}}, res);
       });
 
       it('sets status and writes headers', () => {
@@ -180,7 +193,7 @@ describe('MySqlDriver', () => {
         config = {host: 'some-host', user: 'some-user', password: 'some-password', database: 'some-db'};
 
         sqlDriver = MySqlDriver.new({entities, config});
-        sqlDriver.writeList(from)(null, res);
+        sqlDriver.writeList({params: {type: 'organizations'}}, res);
       });
 
       it('writes the resources key', () => {

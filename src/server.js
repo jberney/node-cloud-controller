@@ -3,7 +3,7 @@ const Server = ({
     const app = express();
 
     app.get('/v2/info', (req, res) => res.send(info));
-    app.get('/v2/organizations', writeList('organizations'));
+    app.get('/v2/:type', writeList);
 
     return app;
   }

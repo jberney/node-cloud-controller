@@ -2,10 +2,6 @@ const mysql = require('mysql');
 const ServerHelper = require('./server_helper');
 const queryBuilder = require('./query_builder');
 
-const getConnection = (pool, cb) => pool.getConnection((e, connection) => {
-  if (e) throw e;
-  cb(connection);
-});
 const leftJoins = entity => Object.values(entity)
   .filter(({foreignTable}) => foreignTable)
   .reduce((memo, {foreignTable}) => memo.indexOf(foreignTable) === -1 ? [...memo, foreignTable] : memo, [])
@@ -17,18 +13,26 @@ module.exports = ({
   new({entities, config}) {
     const pool = mysql.createPool(config);
 
-    const writeList = from => (req, res) => getConnection(pool, connection => {
-      res.writeHead(200, {'Content-Type': 'application/json'});
-      res.write('{"resources":[');
+    const writeList = (req, res, next) => {
+      const from = req.params.type;
       const entity = entities[from];
-      let prefix;
-      const sql = queryBuilder.select().from(from)
-        .leftJoins(leftJoins(entity))
-        .build();
-      connection.query({sql, nestTables: true})
-        .on('result', row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ','))
-        .on('end', () => (connection.release(), res.write(']}'), res.end()));
-    });
+
+      if (!entity) return next();
+
+      return pool.getConnection((e, connection) => {
+        if (e) throw e;
+
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.write('{"resources":[');
+        let prefix;
+        const sql = queryBuilder.select().from(from)
+          .leftJoins(leftJoins(entity))
+          .build();
+        connection.query({sql, nestTables: true})
+          .on('result', row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ','))
+          .on('end', () => (connection.release(), res.write(']}'), res.end()));
+      });
+    };
 
     return {writeList};
   }

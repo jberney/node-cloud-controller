@@ -27,9 +27,5 @@ describe('Server', () => {
     it('responds with info', () => expect(res.send).toHaveBeenCalledWith(info));
   });
 
-  describe('GET /v2/organizations', () => {
-    beforeEach(() => gets['/v2/organizations'](null, res));
-
-    it('responds', () => expect(writeList).toHaveBeenCalledWith('organizations'));
-  });
+  it('GET /v2/organizations', () => expect(gets['/v2/:type']).toBe(writeList));
 });
