@@ -1,4 +1,4 @@
-const entities = require('./entities');
+const metadata = require('./metadata');
 
 const boolean = ({from, column, row}) => !!row[from][column];
 const raw = ({from, column, row}) => row[from][column];
@@ -13,7 +13,7 @@ const newMetadata = ({guid, from, created_at, updated_at}) => ({
 
 const newEntity = ({from, row}) => {
   const entity = {};
-  Object.entries(entities[from]).forEach(([key, {foreignTable, column, type = 'raw', format}]) => {
+  Object.entries(metadata[from].entity).forEach(([key, {foreignTable, column, type = 'raw', format}]) => {
     const value = types[type]({from: foreignTable || from, column: column || key, row});
     entity[key] = format ? format.replace('%s', value) : value;
   });

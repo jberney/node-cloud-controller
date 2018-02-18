@@ -8,7 +8,7 @@ describe('Server', () => {
 
     app = jasmine.createSpyObj('app', ['get']);
     gets = {};
-    app.get.and.callFake((url, middleware) => (gets[url] = middleware, app));
+    app.get.and.callFake((url, ...middlewares) => (gets[url] = middlewares, app));
     express = jasmine.createSpy('express').and.returnValue(app);
     middlewares = jasmine.createSpyObj('middlewares', ['info', 'listAll']);
 
@@ -19,7 +19,14 @@ describe('Server', () => {
 
   it('returns a server', () => expect(server).toBe(app));
 
-  it('GET /v2/info', () => expect(gets['/v2/info']).toBe(middlewares.info));
+  it('GET /v2/info', () => {
+    expect(gets['/v2/info'].length).toBe(1);
+    expect(gets['/v2/info'][0]).toBe(middlewares.info);
+  });
 
-  it('GET /v2/organizations', () => expect(gets['/v2/:type']).toBe(middlewares.listAll));
+  it('GET /v2/:from', () => {
+    expect(gets['/v2/:from'].length).toBe(2);
+    expect(gets['/v2/:from'][0]).toBe(middlewares.requireMetadata);
+    expect(gets['/v2/:from'][1]).toBe(middlewares.listAll);
+  });
 });
