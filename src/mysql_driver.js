@@ -7,8 +7,7 @@ const leftJoins = entity => Object.values(entity)
   .map(foreignTable => ({foreignTable, fromKey: `${foreignTable.replace(/s$/, '')}_id`, foreignKey: 'id'}));
 const pauseWriteResume = ({connection, res}) => cb => (connection.pause(), cb(data => res.write(data, () => connection.resume())));
 const query = (connection, ...args) => new Promise((res, rej) => connection.query(...args, (e, results) => e ? rej(e) : res(results)));
-const queryStream = (connection, result, ...args) => new Promise((res, rej) => connection.query(...args).on('error', rej).on('end', res).on('result', result)
-);
+const queryStream = (connection, result, ...args) => new Promise((res, rej) => connection.query(...args).on('error', rej).on('end', res).on('result', result));
 const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, res})(ServerHelper.writeRow(rest));
 
 module.exports = {
