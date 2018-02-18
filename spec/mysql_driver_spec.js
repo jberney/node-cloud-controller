@@ -1,91 +1,132 @@
+require('./spec_helper');
+
 describe('MySqlDriver', () => {
-  let ServerHelper, writeRow, mysql, pool, MySqlDriver, entity, entities, config, sqlDriver;
+  let MySqlDriver;
 
   beforeEach(() => {
-    ServerHelper = require('../src/server_helper');
-    writeRow = jasmine.createSpy();
-    spyOn(ServerHelper, 'writeRow').and.returnValue(writeRow);
-
-    mysql = require('mysql');
     MySqlDriver = require('../src/mysql_driver');
-
-    pool = jasmine.createSpyObj('pool', ['getConnection']);
-    spyOn(mysql, 'createPool').and.returnValue(pool);
-
-    entity = {name: {}, billing_enabled: {type: 'boolean'}, status: {}};
-    entities = {organizations: entity};
-    config = {host: 'some-host', user: 'some-user', password: 'some-password', database: 'some-db'};
-
-    sqlDriver = MySqlDriver.new({entities, config});
   });
 
-  it('creates a pool', () => {
-    expect(mysql.createPool).toHaveBeenCalledWith(config);
-  });
+  describe('count', () => {
+    let from, connection;
 
-  describe('writeList', () => {
-    describe('when type is invalid', () => {
-      let next;
-
-      beforeEach(() => {
-        next = jasmine.createSpy('next');
-        sqlDriver.writeList({params: {}}, null, next);
-      });
-
-      it('calls next', () => {
-        expect(next).toHaveBeenCalledWith();
-      });
+    beforeEach(() => {
+      from = 'organizations';
+      connection = jasmine.createSpyObj('connection', ['query']);
     });
 
-    describe('when db conn fails', () => {
-      let error, caught;
+    describe('when there is an error', () => {
+      let caught;
 
-      beforeEach(() => {
-        error = 'connection failed!';
-        pool.getConnection.and.callFake(cb => cb(error));
-
+      beforeEach.async(async () => {
+        connection.query.and.callFake((sql, bindings, cb) => cb('failed to retrieve count'));
         try {
-          sqlDriver.writeList({params: {type: 'organizations'}});
+          await MySqlDriver.count({connection, from});
         } catch (e) {
           caught = e;
         }
       });
 
-      it('requests a db connection from the pool', () => {
-        expect(pool.getConnection).toHaveBeenCalledWith(jasmine.any(Function));
+      it('queries the count', () => {
+        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(*) AS count FROM ??', [from], jasmine.any(Function));
       });
 
       it('throws the error', () => {
-        expect(caught).toBe(error);
+        expect(caught).toBe('failed to retrieve count');
+      });
+    });
+
+    describe('when there is no error', () => {
+      let count, actual;
+
+      beforeEach.async(async () => {
+        connection.query.and.callFake((sql, bindings, cb) => cb(null, [{count}]));
+        actual = await MySqlDriver.count({connection, from});
+      });
+
+      it('queries the count', () => {
+        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(*) AS count FROM ??', [from], jasmine.any(Function));
+      });
+
+      it.async('returns the count', async () => {
+        expect(actual).toBe(count);
       });
     });
   });
 
-  describe('when db conn succeeds', () => {
-    let connection, query, listeners, res, from;
+  describe('getConnection', () => {
+    let pool;
 
     beforeEach(() => {
+      pool = jasmine.createSpyObj('pool', ['getConnection']);
+    });
+
+    describe('when there is an error', () => {
+      let caught;
+
+      beforeEach.async(async () => {
+        pool.getConnection.and.callFake(cb => cb('failed to get connection'));
+        try {
+          await MySqlDriver.getConnection(pool);
+        } catch (e) {
+          caught = e;
+        }
+      });
+
+      it('gets a connection', () => {
+        expect(pool.getConnection).toHaveBeenCalledWith(jasmine.any(Function));
+      });
+
+      it('throws the error', () => {
+        expect(caught).toBe('failed to get connection');
+      });
+    });
+
+    describe('when there is no error', () => {
+      let connection, actual;
+
+      beforeEach.async(async () => {
+        connection = jasmine.createSpy('connection');
+        pool.getConnection.and.callFake(cb => cb(null, connection));
+        actual = await MySqlDriver.getConnection(pool);
+      });
+
+      it('gets a connection', () => {
+        expect(pool.getConnection).toHaveBeenCalledWith(jasmine.any(Function));
+      });
+
+      it('returns the connection', () => {
+        expect(actual).toBe(connection);
+      });
+    });
+  });
+
+
+  describe('writeRows', () => {
+    let ServerHelper, writeRow, entity, connection, query, listeners, res, from;
+
+    beforeEach(() => {
+      ServerHelper = require('../src/server_helper');
+
+      writeRow = jasmine.createSpy();
+      spyOn(ServerHelper, 'writeRow').and.returnValue(writeRow);
+
+      entity = {name: {}, billing_enabled: {type: 'boolean'}, status: {}};
+
       connection = jasmine.createSpyObj('connection', ['pause', 'query', 'release', 'resume']);
       query = jasmine.createSpyObj('query', ['on']);
       listeners = {};
       query.on.and.callFake((event, cb) => (listeners[event] = cb, query));
       connection.query.and.returnValue(query);
-      pool.getConnection.and.callFake(cb => cb(null, connection));
       res = jasmine.createSpyObj('res', ['end', 'write', 'writeHead']);
       from = 'organizations';
     });
 
     describe('with a basic query', () => {
+      let promise;
+
       beforeEach(() => {
-        sqlDriver.writeList({params: {type: 'organizations'}}, res);
-      });
-
-      it('sets status and writes headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the resources key', () => {
-        expect(res.write).toHaveBeenCalledWith('{"resources":[');
+        promise = MySqlDriver.writeRows({connection, entity, from, res});
       });
 
       it('queries the database', () => {
@@ -163,16 +204,8 @@ describe('MySqlDriver', () => {
           listeners.end();
         });
 
-        it('releases the connection', () => {
-          expect(connection.release).toHaveBeenCalledWith();
-        });
-
-        it('writes the end of the json', () => {
-          expect(res.write).toHaveBeenCalledWith(']}');
-        });
-
-        it('ends the response', () => {
-          expect(res.end).toHaveBeenCalledWith();
+        it.async('returns undefined', async () => {
+          expect(await promise).toBeUndefined();
         });
       });
     });
@@ -189,15 +222,8 @@ describe('MySqlDriver', () => {
           status: {},
           quota_definition_url: {foreignTable, column: 'guid', format: '/v2/quota_definitions/%s'}
         };
-        entities = {organizations: entity};
-        config = {host: 'some-host', user: 'some-user', password: 'some-password', database: 'some-db'};
 
-        sqlDriver = MySqlDriver.new({entities, config});
-        sqlDriver.writeList({params: {type: 'organizations'}}, res);
-      });
-
-      it('writes the resources key', () => {
-        expect(res.write).toHaveBeenCalledWith('{"resources":[');
+        MySqlDriver.writeRows({connection, entity, from, res});
       });
 
       it('queries the database', () => {

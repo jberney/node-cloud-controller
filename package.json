@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint .",
-    "push": "yarn lint && yarn test && git add -N . && git add -p && git commit && git push",
+    "push": "yarn && git add yarn.lock && yarn lint && yarn test && git add -N . && git add -p && git commit && git push",
     "start": "node src/index",
     "test": "istanbul cover --root ./src --include-all-sources node_modules/.bin/jasmine"
   },
@@ -21,6 +21,7 @@
     "coveralls": "^3.0.0",
     "eslint": "^4.18.0",
     "istanbul": "^1.1.0-alpha.1",
-    "jasmine": "^3.0.0"
+    "jasmine": "^3.0.0",
+    "jasmine-async-suite": "^0.0.8"
   }
 }

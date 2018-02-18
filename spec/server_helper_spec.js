@@ -1,3 +1,5 @@
+require('./spec_helper');
+
 describe('ServerHelper', () => {
   const from = 'organizations';
   let ServerHelper;

@@ -10,6 +10,7 @@
     "sourceType": "module"
   },
   "globals": {
+    "afterAll": true,
     "beforeAll": true,
     "beforeEach": true,
     "describe": true,

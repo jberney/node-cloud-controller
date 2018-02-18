@@ -1,12 +1,7 @@
 const Server = ({
-  new({express, sqlDriver: {writeList}, info}) {
-    const app = express();
-
-    app.get('/v2/info', (req, res) => res.send(info));
-    app.get('/v2/:type', writeList);
-
-    return app;
-  }
+  new: ({express, middlewares}) => express()
+    .get('/v2/info', middlewares.info)
+    .get('/v2/:type', middlewares.listAll)
 });
 
 module.exports = Server;

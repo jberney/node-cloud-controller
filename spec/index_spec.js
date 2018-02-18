@@ -1,16 +1,21 @@
+require('./spec_helper');
+
 describe('Index', () => {
-  let express, Server, MySqlDriver, entities, server, sqlDriver, host, user, password, database, info;
+  let express, mysql, Middlewares, MySqlDriver, Server, pool, middlewares, server, host, user, password, database, info;
 
   beforeAll(() => {
     express = require('express');
-
+    mysql = require('mysql');
+    Middlewares = require('../src/middlewares');
     MySqlDriver = require('../src/mysql_driver');
-    sqlDriver = jasmine.createSpy('sqlDriver');
-    spyOn(MySqlDriver, 'new').and.returnValue(sqlDriver);
-
-    entities = require('../src/entities');
-
     Server = require('../src/server');
+
+    pool = jasmine.createSpy('pool');
+    spyOn(mysql, 'createPool').and.returnValue(pool);
+
+    middlewares = jasmine.createSpy('middlewares');
+    spyOn(Middlewares, 'new').and.returnValue(middlewares);
+
     server = jasmine.createSpyObj('server', ['listen']);
     spyOn(Server, 'new').and.returnValue(server);
 
@@ -33,12 +38,16 @@ describe('Index', () => {
     require('../src/index');
   });
 
-  it('creates a mysql driver', () => {
-    expect(MySqlDriver.new).toHaveBeenCalledWith({entities, config: {host, user, password, database}});
+  it('creates a mysql pool', () => {
+    expect(mysql.createPool).toHaveBeenCalledWith({host, user, password, database});
+  });
+
+  it('creates middlewares', () => {
+    expect(Middlewares.new).toHaveBeenCalledWith({info, pool, SqlDriver: MySqlDriver});
   });
 
   it('creates a server', () => {
-    expect(Server.new).toHaveBeenCalledWith({express, sqlDriver, info});
+    expect(Server.new).toHaveBeenCalledWith({express, middlewares});
   });
 
   it('listens on port 8000', () => {
