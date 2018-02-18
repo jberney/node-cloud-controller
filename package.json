@@ -4,10 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "git-add": "yarn lint-and-test && git add -N . && git add -p",
-    "git-push": "yarn lint-and-test && git push",
     "lint": "eslint .",
-    "lint-and-test": "yarn lint && yarn test",
+    "push": "yarn lint && yarn test && git add -N . && git add -p && git commit && git push",
     "start": "node src/index",
     "test": "istanbul cover --root ./src --include-all-sources node_modules/.bin/jasmine"
   },
