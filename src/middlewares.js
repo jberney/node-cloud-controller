@@ -5,9 +5,8 @@ module.exports = ({
     info: (req, res) => res.send(info),
     listAll: async (req, res, next) => {
       const from = req.params.type;
-      const entity = entities[from];
 
-      if (!entity) return next();
+      if (!entities[from]) return next();
 
       try {
         const connection = await SqlDriver.getConnection(pool);
@@ -15,7 +14,7 @@ module.exports = ({
           const count = await SqlDriver.count({connection, from});
           res.writeHead(200, {'Content-Type': 'application/json'});
           res.write(`{"total_results":${count},"total_pages":${Math.ceil(count / 100)},"prev_url":null,"next_url":null,"resources":[`);
-          if (count > 0) await SqlDriver.writeRows({connection, entity, from, res});
+          if (count > 0) await SqlDriver.writeRows({connection, from, res});
           res.write(']}');
         } finally {
           connection.release();

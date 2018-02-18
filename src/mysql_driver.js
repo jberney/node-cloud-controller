@@ -1,7 +1,8 @@
+const entities = require('./entities');
 const ServerHelper = require('./server_helper');
 const QueryBuilder = require('./query_builder');
 
-const leftJoins = entity => Object.values(entity)
+const leftJoins = from => Object.values(entities[from])
   .filter(({foreignTable}) => foreignTable)
   .reduce((memo, {foreignTable}) => memo.indexOf(foreignTable) === -1 ? [...memo, foreignTable] : memo, [])
   .map(foreignTable => ({foreignTable, fromKey: `${foreignTable.replace(/s$/, '')}_id`, foreignKey: 'id'}));
@@ -13,10 +14,10 @@ const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, r
 module.exports = {
   count: async ({connection, from}) => (await query(connection, 'SELECT COUNT(*) AS count FROM ??', [from]))[0].count,
   getConnection: pool => new Promise((res, rej) => pool.getConnection((e, connection) => e ? rej(e) : res(connection))),
-  writeRows: async ({connection, entity, from, res}) => {
+  writeRows: async ({connection, from, res}) => {
     let prefix;
-    const result = row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ',');
-    const sql = QueryBuilder.select().from(from).leftJoins(leftJoins(entity)).build();
+    const result = row => (writeRow({connection, res, prefix, row, from}), prefix = ',');
+    const sql = QueryBuilder.select().from(from).leftJoins(leftJoins(from)).build();
     await queryStream(connection, result, {sql, nestTables: true});
   }
 };

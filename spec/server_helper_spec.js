@@ -8,21 +8,6 @@ describe('ServerHelper', () => {
     ServerHelper = require('../src/server_helper');
   });
 
-  describe('subObjectUrls', () => {
-    let returned;
-
-    beforeEach(() => {
-      returned = ServerHelper.subObjectUrls({from, foreignTables: ['foreign_table_1', 'foreign_table_2']});
-    });
-
-    it('returns object mapping foreign table url keys to url-generating functions', () => {
-      expect(returned).toEqual({
-        foreign_table_1_url: {column: 'guid', format: `/v2/${from}/%s/foreign_table_1`},
-        foreign_table_2_url: {column: 'guid', format: `/v2/${from}/%s/foreign_table_2`}
-      });
-    });
-  });
-
   describe('writeRow', () => {
     let entity, row, write;
 
@@ -71,7 +56,16 @@ describe('ServerHelper', () => {
             billing_enabled: !!row.organizations.billing_enabled,
             quota_definition_guid: row.quota_definitions.guid,
             status: row.organizations.status,
-            quota_definition_url: `/v2/quota_definitions/${row.quota_definitions.guid}`
+            quota_definition_url: `/v2/quota_definitions/${row.quota_definitions.guid}`,
+            spaces_url: '/v2/organizations/organization-guid/spaces',
+            domains_url: '/v2/organizations/organization-guid/domains',
+            private_domains_url: '/v2/organizations/organization-guid/private_domains',
+            users_url: '/v2/organizations/organization-guid/users',
+            managers_url: '/v2/organizations/organization-guid/managers',
+            billing_managers_url: '/v2/organizations/organization-guid/billing_managers',
+            auditors_url: '/v2/organizations/organization-guid/auditors',
+            app_events_url: '/v2/organizations/organization-guid/app_events',
+            space_quota_definitions_url: '/v2/organizations/organization-guid/space_quota_definitions'
           }
         }));
       });
@@ -95,7 +89,16 @@ describe('ServerHelper', () => {
             billing_enabled: !!row.organizations.billing_enabled,
             quota_definition_guid: row.quota_definitions.guid,
             status: row.organizations.status,
-            quota_definition_url: `/v2/quota_definitions/${row.quota_definitions.guid}`
+            quota_definition_url: `/v2/quota_definitions/${row.quota_definitions.guid}`,
+            spaces_url: '/v2/organizations/organization-guid/spaces',
+            domains_url: '/v2/organizations/organization-guid/domains',
+            private_domains_url: '/v2/organizations/organization-guid/private_domains',
+            users_url: '/v2/organizations/organization-guid/users',
+            managers_url: '/v2/organizations/organization-guid/managers',
+            billing_managers_url: '/v2/organizations/organization-guid/billing_managers',
+            auditors_url: '/v2/organizations/organization-guid/auditors',
+            app_events_url: '/v2/organizations/organization-guid/app_events',
+            space_quota_definitions_url: '/v2/organizations/organization-guid/space_quota_definitions'
           }
         })}`);
       });

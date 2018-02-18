@@ -146,12 +146,10 @@ describe('Middlewares', () => {
     });
 
     describe('when writing rows fails', () => {
-      let entity, from, pool, SqlDriver, connection, error, res, caught;
+      let from, pool, SqlDriver, connection, error, res, caught;
 
       beforeEach.async(async () => {
-        const entities = require('../src/entities');
         from = 'organizations';
-        entity = entities[from];
         pool = jasmine.createSpy('pool');
         SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
         connection = jasmine.createSpyObj('connection', ['release']);
@@ -184,7 +182,7 @@ describe('Middlewares', () => {
       });
 
       it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({connection, entity, from, res});
+        expect(SqlDriver.writeRows).toHaveBeenCalledWith({connection, from, res});
       });
 
       it('releases the connection', () => {

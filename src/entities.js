@@ -1,4 +1,11 @@
-const {subObjectUrls} = require('./server_helper');
+const subObjectUrls = ({from, foreignTables}) => {
+  const obj = {};
+  foreignTables.forEach(foreignTable => obj[`${foreignTable}_url`] = {
+    column: 'guid',
+    format: `/v2/${from}/%s/${foreignTable}`
+  });
+  return obj;
+};
 
 module.exports = {
   organizations: {
