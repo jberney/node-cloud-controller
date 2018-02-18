@@ -14,11 +14,12 @@ const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, r
 module.exports = {
   count: async ({connection, from}) => (await query(connection, 'SELECT COUNT(*) AS count FROM ??', [from]))[0].count,
   getConnection: pool => new Promise((res, rej) => pool.getConnection((e, connection) => e ? rej(e) : res(connection))),
-  writeRows: async ({connection, from, orderBy, orderDir, res}) => {
+  writeRows: async ({connection, from, perPage = 100, orderBy, orderDir, res}) => {
     let prefix;
     const result = row => (writeRow({connection, res, prefix, row, from}), prefix = ',');
     const sql = QueryBuilder.select().from(from)
       .leftJoins(leftJoins(from))
+      .limit(perPage)
       .orderBy(orderBy, orderDir)
       .build();
     await queryStream(connection, result, {sql, nestTables: true});

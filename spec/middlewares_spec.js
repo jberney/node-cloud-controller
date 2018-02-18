@@ -172,8 +172,9 @@ describe('Middlewares', () => {
         expect(SqlDriver.writeRows).toHaveBeenCalledWith({
           connection,
           from,
+          perPage: 100,
           orderBy: 'organizations.id',
-          orderDir: undefined,
+          orderDir: 'asc',
           res
         });
       });
@@ -234,6 +235,122 @@ describe('Middlewares', () => {
       });
     });
 
+    describe('with perPage', () => {
+      let from, pool, SqlDriver, connection, res;
+
+      beforeEach.async(async () => {
+        from = 'organizations';
+        pool = jasmine.createSpy('pool');
+        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
+        connection = jasmine.createSpyObj('connection', ['release']);
+        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
+        SqlDriver.count.and.returnValue(Promise.resolve(1));
+        SqlDriver.writeRows.and.returnValue(Promise.resolve());
+        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
+        await Middlewares.new({pool, SqlDriver}).listAll({
+          params: {from: 'organizations'},
+          query: {'results-per-page': '50'}
+        }, res);
+      });
+
+      it('gets a connection', () => {
+        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      });
+
+      it('gets the count', () => {
+        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
+      });
+
+      it('writes the headers', () => {
+        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
+      });
+
+      it('writes the start of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
+      });
+
+      it('writes rows', () => {
+        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
+          connection,
+          from,
+          perPage: 50,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          res
+        });
+      });
+
+      it('writes the end of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith(']}');
+      });
+
+      it('releases the connection', () => {
+        expect(connection.release).toHaveBeenCalledWith();
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('with invalid perPage', () => {
+      let from, pool, SqlDriver, connection, res;
+
+      beforeEach.async(async () => {
+        from = 'organizations';
+        pool = jasmine.createSpy('pool');
+        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
+        connection = jasmine.createSpyObj('connection', ['release']);
+        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
+        SqlDriver.count.and.returnValue(Promise.resolve(1));
+        SqlDriver.writeRows.and.returnValue(Promise.resolve());
+        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
+        await Middlewares.new({pool, SqlDriver}).listAll({
+          params: {from: 'organizations'},
+          query: {'results-per-page': 'a'}
+        }, res);
+      });
+
+      it('gets a connection', () => {
+        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      });
+
+      it('gets the count', () => {
+        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
+      });
+
+      it('writes the headers', () => {
+        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
+      });
+
+      it('writes the start of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
+      });
+
+      it('writes rows', () => {
+        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
+          connection,
+          from,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          res
+        });
+      });
+
+      it('writes the end of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith(']}');
+      });
+
+      it('releases the connection', () => {
+        expect(connection.release).toHaveBeenCalledWith();
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
+
     describe('with orderBy', () => {
       let from, pool, SqlDriver, connection, res;
 
@@ -272,8 +389,67 @@ describe('Middlewares', () => {
         expect(SqlDriver.writeRows).toHaveBeenCalledWith({
           connection,
           from,
+          perPage: 100,
           orderBy: 'organizations.name',
-          orderDir: undefined,
+          orderDir: 'asc',
+          res
+        });
+      });
+
+      it('writes the end of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith(']}');
+      });
+
+      it('releases the connection', () => {
+        expect(connection.release).toHaveBeenCalledWith();
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('with invalid orderBy', () => {
+      let from, pool, SqlDriver, connection, res;
+
+      beforeEach.async(async () => {
+        from = 'organizations';
+        pool = jasmine.createSpy('pool');
+        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
+        connection = jasmine.createSpyObj('connection', ['release']);
+        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
+        SqlDriver.count.and.returnValue(Promise.resolve(1));
+        SqlDriver.writeRows.and.returnValue(Promise.resolve());
+        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
+        await Middlewares.new({pool, SqlDriver}).listAll({
+          params: {from: 'organizations'},
+          query: {'order-by': 'a'}
+        }, res);
+      });
+
+      it('gets a connection', () => {
+        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      });
+
+      it('gets the count', () => {
+        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
+      });
+
+      it('writes the headers', () => {
+        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
+      });
+
+      it('writes the start of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
+      });
+
+      it('writes rows', () => {
+        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
+          connection,
+          from,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
           res
         });
       });
@@ -329,8 +505,67 @@ describe('Middlewares', () => {
         expect(SqlDriver.writeRows).toHaveBeenCalledWith({
           connection,
           from,
+          perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'desc',
+          res
+        });
+      });
+
+      it('writes the end of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith(']}');
+      });
+
+      it('releases the connection', () => {
+        expect(connection.release).toHaveBeenCalledWith();
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('with invalid orderDir', () => {
+      let from, pool, SqlDriver, connection, res;
+
+      beforeEach.async(async () => {
+        from = 'organizations';
+        pool = jasmine.createSpy('pool');
+        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
+        connection = jasmine.createSpyObj('connection', ['release']);
+        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
+        SqlDriver.count.and.returnValue(Promise.resolve(1));
+        SqlDriver.writeRows.and.returnValue(Promise.resolve());
+        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
+        await Middlewares.new({pool, SqlDriver}).listAll({
+          params: {from: 'organizations'},
+          query: {'order-direction': 'invalid'}
+        }, res);
+      });
+
+      it('gets a connection', () => {
+        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      });
+
+      it('gets the count', () => {
+        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
+      });
+
+      it('writes the headers', () => {
+        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
+      });
+
+      it('writes the start of the json object', () => {
+        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
+      });
+
+      it('writes rows', () => {
+        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
+          connection,
+          from,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
           res
         });
       });

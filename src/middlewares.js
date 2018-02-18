@@ -11,14 +11,21 @@ const handleError = cb => async (req, res, next) => {
 module.exports = ({
   new: ({info, pool, SqlDriver}) => ({
     info: (req, res) => res.send(info),
-    listAll: handleError(async ({params: {from}, query: {'order-by': orderBy, 'order-direction': orderDir}}, res) => {
+    listAll: handleError(async ({params: {from}, query}, res) => {
+      const {'results-per-page': perPage = 100, 'order-by': orderBy = 'id', 'order-direction': orderDir = 'asc'} = query;
+      const sanitizedPerPage = Math.max(1, Math.min(100, isNaN(+perPage) ? 100 : +perPage));
+      const sanitizedOrderBy = `${from}.${metadata[from].orderBys.indexOf(orderBy) !== -1 ? orderBy : 'id'}`;
+      const sanitizedOrderDir = orderDir.toLowerCase() === 'desc' ? 'desc' : 'asc';
       const connection = await SqlDriver.getConnection(pool);
       try {
         const count = await SqlDriver.count({connection, from});
         res.writeHead(200, {'Content-Type': 'application/json'});
-        res.write(`{"total_results":${count},"total_pages":${Math.ceil(count / 100)},"prev_url":null,"next_url":null,"resources":[`);
-        orderBy = `${from}.${metadata[from].orderBys.indexOf(orderBy) !== -1 ? orderBy : 'id'}`;
-        if (count > 0) await SqlDriver.writeRows({connection, from, orderBy, orderDir, res});
+        res.write(`{"total_results":${count},"total_pages":${Math.ceil(count / sanitizedPerPage)},"prev_url":null,"next_url":null,"resources":[`);
+        if (count > 0) {
+          await SqlDriver.writeRows({
+            connection, from, perPage: sanitizedPerPage, orderBy: sanitizedOrderBy, orderDir: sanitizedOrderDir, res
+          });
+        }
         res.write(']}');
       } finally {
         connection.release();

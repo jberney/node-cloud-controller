@@ -61,5 +61,14 @@ describe('QueryBuilder', () => {
           .toBe('SELECT * FROM `from-table` ORDER BY `order-by-col` DESC');
       });
     });
+
+    describe('with a limit', () => {
+      it('returns sql', () => {
+        expect(QueryBuilder.select().from('from-table')
+          .limit(100)
+          .build())
+          .toBe('SELECT * FROM `from-table` LIMIT 100');
+      });
+    });
   });
 });
