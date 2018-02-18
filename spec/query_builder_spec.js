@@ -1,22 +1,22 @@
 require('./spec_helper');
 
 describe('QueryBuilder', () => {
-  let queryBuilder;
+  let QueryBuilder;
 
   beforeEach(() => {
-    queryBuilder = require('../src/query_builder');
+    QueryBuilder = require('../src/query_builder');
   });
 
   describe('select', () => {
     describe('basic', () => {
       it('returns sql', () => {
-        expect(queryBuilder.select().from('from-table').build()).toBe('SELECT * FROM `from-table`');
+        expect(QueryBuilder.select().from('from-table').build()).toBe('SELECT * FROM `from-table`');
       });
     });
 
     describe('with a leftJoin', () => {
       it('returns sql', () => {
-        expect(queryBuilder.select().from('from-table')
+        expect(QueryBuilder.select().from('from-table')
           .leftJoins([{foreignTable: 'foreign-table', fromKey: 'from-key', foreignKey: 'foreign-key'}])
           .build())
           .toBe('SELECT * FROM `from-table` LEFT JOIN `foreign-table` ON `from-table`.`from-key` = `foreign-table`.`foreign-key`');

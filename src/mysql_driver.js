@@ -1,5 +1,5 @@
 const ServerHelper = require('./server_helper');
-const queryBuilder = require('./query_builder');
+const QueryBuilder = require('./query_builder');
 
 const leftJoins = entity => Object.values(entity)
   .filter(({foreignTable}) => foreignTable)
@@ -16,7 +16,7 @@ module.exports = {
   writeRows: async ({connection, entity, from, res}) => {
     let prefix;
     const result = row => (writeRow({connection, res, prefix, row, from, entity}), prefix = ',');
-    const sql = queryBuilder.select().from(from).leftJoins(leftJoins(entity)).build();
+    const sql = QueryBuilder.select().from(from).leftJoins(leftJoins(entity)).build();
     await queryStream(connection, result, {sql, nestTables: true});
   }
 };
