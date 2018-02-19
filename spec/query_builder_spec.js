@@ -7,6 +7,12 @@ describe('QueryBuilder', () => {
     QueryBuilder = require('../src/query_builder');
   });
 
+  describe('count', () => {
+    it('returns sql', () => {
+      expect(QueryBuilder.count('from-table')).toBe('SELECT COUNT(`id`) AS count FROM `from-table`');
+    });
+  });
+
   describe('select', () => {
     describe('basic', () => {
       it('returns sql', () => {

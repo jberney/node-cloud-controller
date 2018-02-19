@@ -15,7 +15,7 @@ const queryStream = (connection, result, ...args) => new Promise((res, rej) => c
 const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, res})(ServerHelper.writeRow(rest));
 
 module.exports = {
-  count: async ({connection, from}) => (await query(connection, 'SELECT COUNT(*) AS count FROM ??', [from]))[0].count,
+  count: async ({connection, from}) => (await query(connection, QueryBuilder.count(from)))[0].count,
   getConnection: pool => new Promise((res, rej) => pool.getConnection((e, connection) => e ? rej(e) : res(connection))),
   writeRows: async ({connection, from, page = 1, perPage = 100, orderBy = 'id', orderDir = 'asc', res}) => {
     let prefix;

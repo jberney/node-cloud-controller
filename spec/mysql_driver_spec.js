@@ -19,7 +19,7 @@ describe('MySqlDriver', () => {
       let caught;
 
       beforeEach.async(async () => {
-        connection.query.and.callFake((sql, bindings, cb) => cb('failed to retrieve count'));
+        connection.query.and.callFake((sql, cb) => cb('failed to retrieve count'));
         try {
           await MySqlDriver.count({connection, from});
         } catch (e) {
@@ -28,7 +28,7 @@ describe('MySqlDriver', () => {
       });
 
       it('queries the count', () => {
-        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(*) AS count FROM ??', [from], jasmine.any(Function));
+        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(`id`) AS count FROM `organizations`', jasmine.any(Function));
       });
 
       it('throws the error', () => {
@@ -40,12 +40,12 @@ describe('MySqlDriver', () => {
       let count, actual;
 
       beforeEach.async(async () => {
-        connection.query.and.callFake((sql, bindings, cb) => cb(null, [{count}]));
+        connection.query.and.callFake((sql, cb) => cb(null, [{count}]));
         actual = await MySqlDriver.count({connection, from});
       });
 
       it('queries the count', () => {
-        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(*) AS count FROM ??', [from], jasmine.any(Function));
+        expect(connection.query).toHaveBeenCalledWith('SELECT COUNT(`id`) AS count FROM `organizations`', jasmine.any(Function));
       });
 
       it.async('returns the count', async () => {
