@@ -12,12 +12,12 @@ const newMetadata = ({row, from}) => ({
 });
 
 const newEntity = ({from, row}) => {
-  const entity = {};
-  Object.entries(metadata[from].entity).forEach(([key, {foreignTable, column, type = 'raw', format}]) => {
-    const value = types[type]({from: foreignTable || from, column: column || key, row});
-    entity[key] = format ? format.replace('%s', value) : value;
-  });
-  return entity;
+  return Object.entries(metadata[from].entity)
+    .map(([key, {foreignTable, column, type = 'raw', format}]) => {
+      const value = types[type]({from: foreignTable || from, column: column || key, row});
+      return [key, format ? format.replace('%s', value) : value];
+    })
+    .reduce((memo, [key, value]) => ({...memo, [key]: value}), {});
 };
 
 const toV2Object = args => ({metadata: newMetadata(args), entity: newEntity(args)});
