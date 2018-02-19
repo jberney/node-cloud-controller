@@ -1,11 +1,74 @@
 require('./spec_helper');
 
 describe('Middlewares', () => {
-  let Middlewares, res;
+  let Middlewares, ServerHelper, knexHelper, req, res, next;
 
   beforeEach(() => {
     Middlewares = require('../src/middlewares');
-    res = jasmine.createSpyObj('res', ['end', 'send', 'write', 'writeHead']);
+    ServerHelper = require('../src/server_helper');
+    spyOn(ServerHelper, 'toV2Object');
+    knexHelper = jasmine.createSpyObj('knexHelper', ['streamPage', 'tableCount']);
+    req = jasmine.createSpy('req');
+    res = jasmine.createSpyObj('res', ['end', 'send', 'set', 'status', 'write', 'writeHead']);
+    next = jasmine.createSpy('next');
+  });
+
+  describe('handleError', () => {
+    let cb;
+
+    beforeEach(() => {
+      cb = jasmine.createSpy('cb');
+    });
+
+    describe('when there is an error', () => {
+      beforeEach.async(async () => {
+        spyOn(console, 'error');
+        cb.and.returnValue(Promise.reject('callback failed'));
+        await Middlewares.new({}).handleError(cb)(req, res, next);
+      });
+
+      it('calls the callback', () => {
+        expect(cb).toHaveBeenCalledWith(req, res, next);
+      });
+
+      it('logs the error', () => {
+        // eslint-disable-next-line no-console
+        expect(console.error).toHaveBeenCalledWith('callback failed');
+      });
+
+      it('sets the response status', () => {
+        expect(res.status).toHaveBeenCalledWith(500);
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('when there is no error', () => {
+      beforeEach.async(async () => {
+        spyOn(console, 'error');
+        cb.and.returnValue(Promise.resolve());
+        await Middlewares.new({}).handleError(cb)(req, res, next);
+      });
+
+      it('calls the callback', () => {
+        expect(cb).toHaveBeenCalledWith(req, res, next);
+      });
+
+      it('does not log an error', () => {
+        // eslint-disable-next-line no-console
+        expect(console.error).not.toHaveBeenCalled();
+      });
+
+      it('does not set the response status', () => {
+        expect(res.status).not.toHaveBeenCalled();
+      });
+
+      it('ends the response', () => {
+        expect(res.end).toHaveBeenCalledWith();
+      });
+    });
   });
 
   describe('info', () => {
@@ -22,700 +85,272 @@ describe('Middlewares', () => {
   });
 
   describe('listAll', () => {
-    describe('when there is an error acquiring a connection', () => {
-      let pool, SqlDriver, error, res, caught;
+    const from = 'organizations';
+    let row;
 
+    beforeEach(() => {
+      row = jasmine.createSpy('row');
+    });
+
+    describe('with zero results', () => {
       beforeEach.async(async () => {
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['getConnection']);
-        error = 'failed to acquire a connection';
-        SqlDriver.getConnection.and.returnValue(Promise.reject(error));
-        res = jasmine.createSpyObj('res', ['end']);
-        try {
-          await Middlewares.new({pool, SqlDriver}).listAll({params: {from: 'organizations'}, query: {}}, res);
-        } catch (e) {
-          caught = e;
-        }
+        knexHelper.tableCount.and.returnValue(Promise.resolve(0));
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      it('gets total results', () => {
+        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
       });
 
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
-      });
-
-      it('throws the error', () => {
-        expect(caught).toBe(error);
+      it('ends the response with an empty envelope', () => {
+        expect(res.end)
+          .toHaveBeenCalledWith('{"total_results":0,"total_pages":0,"prev_url":null,"next_url":null,"resources":[]}');
       });
     });
 
-    describe('when there is an error getting the count', () => {
-      let pool, SqlDriver, connection, error, res, caught;
+    describe('with one result', () => {
+      let v2Object;
 
       beforeEach.async(async () => {
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        error = 'failed to get the count';
-        SqlDriver.count.and.returnValue(Promise.reject(error));
-        res = jasmine.createSpyObj('res', ['end']);
-        try {
-          await Middlewares.new({pool, SqlDriver}).listAll({params: {from: 'organizations'}, query: {}}, res);
-        } catch (e) {
-          caught = e;
-        }
+        v2Object = {metadata: {guid: 'some-guid'}, entity: {name: 'some-name'}};
+        ServerHelper.toV2Object.and.returnValue(v2Object);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.callFake(({write}) => (write(row), Promise.resolve()));
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
+      it('gets total results', () => {
+        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
       });
 
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
-      });
-
-      it('throws the error', () => {
-        expect(caught).toBe(error);
-      });
-    });
-
-    describe('when there are no rows to write', () => {
-      let pool, SqlDriver, connection, res;
-
-      beforeEach.async(async () => {
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(0));
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({params: {from: 'organizations'}, query: {}}, res);
-      });
-
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":0,"total_pages":0,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
-      });
-    });
-
-    describe('when writing rows fails', () => {
-      let from, pool, SqlDriver, connection, error, res, caught;
-
-      beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(150));
-        error = 'failed to write rows';
-        SqlDriver.writeRows.and.returnValue(Promise.reject(error));
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        try {
-          await Middlewares.new({pool, SqlDriver}).listAll({params: {from: 'organizations'}, query: {}}, res);
-        } catch (e) {
-          caught = e;
-        }
-      });
-
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":150,"total_pages":2,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
       });
 
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
+      it('converts the row to a v2 object', () => {
+        expect(ServerHelper.toV2Object).toHaveBeenCalledWith({from, row});
       });
 
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
+      it('writes the header and first row', () => {
+        expect(res.write)
+          .toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":['
+            + JSON.stringify(v2Object));
       });
 
-      it('throws the error', () => {
-        expect(caught).toBe(error);
-      });
-    });
-
-    describe('when there are rows to write', () => {
-      let pool, SqlDriver, connection, res;
-
-      beforeEach.async(async () => {
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({params: {from: 'organizations'}, query: {}}, res);
-      });
-
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
+      it('ends the response with the end of the envelope', () => {
+        expect(res.end).toHaveBeenCalledWith(']}');
       });
     });
 
-    describe('with page', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with a valid page', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {page: '2'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {page: '2'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 2,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with invalid page', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with an invalid page', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {page: '0'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {page: '-1'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with perPage', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with a valid perPage', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'results-per-page': '50'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'results-per-page': '50'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 50,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with invalid perPage', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with an invalid perPage', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'results-per-page': 'a'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'results-per-page': 'invalid'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with orderBy', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with a valid orderBy', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'order-by': 'name'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'order-by': 'name'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.name',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with invalid orderBy', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with an invalid orderBy', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'order-by': 'a'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'order-by': 'invalid'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with orderDir', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with a valid orderDir', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'order-direction': 'desc'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'order-direction': 'desc'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'desc',
-          res
+          write: jasmine.any(Function)
         });
-      });
-
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
-      });
-
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
-      });
-
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
       });
     });
 
-    describe('with invalid orderDir', () => {
-      let from, pool, SqlDriver, connection, res;
-
+    describe('with an invalid orderDir', () => {
       beforeEach.async(async () => {
-        from = 'organizations';
-        pool = jasmine.createSpy('pool');
-        SqlDriver = jasmine.createSpyObj('SqlDriver', ['count', 'getConnection', 'writeRows']);
-        connection = jasmine.createSpyObj('connection', ['release']);
-        SqlDriver.getConnection.and.returnValue(Promise.resolve(connection));
-        SqlDriver.count.and.returnValue(Promise.resolve(1));
-        SqlDriver.writeRows.and.returnValue(Promise.resolve());
-        res = jasmine.createSpyObj('res', ['end', 'writeHead', 'write']);
-        await Middlewares.new({pool, SqlDriver}).listAll({
-          params: {from: 'organizations'},
-          query: {'order-direction': 'invalid'}
-        }, res);
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {'order-direction': 'invalid'}}, res);
       });
 
-      it('gets a connection', () => {
-        expect(SqlDriver.getConnection).toHaveBeenCalledWith(pool);
-      });
-
-      it('gets the count', () => {
-        expect(SqlDriver.count).toHaveBeenCalledWith({connection, from: 'organizations'});
-      });
-
-      it('writes the headers', () => {
-        expect(res.writeHead).toHaveBeenCalledWith(200, {'Content-Type': 'application/json'});
-      });
-
-      it('writes the start of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[');
-      });
-
-      it('writes rows', () => {
-        expect(SqlDriver.writeRows).toHaveBeenCalledWith({
-          connection,
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
           orderDir: 'asc',
-          res
+          write: jasmine.any(Function)
+        });
+      });
+    });
+
+    describe('with two results', () => {
+      let firstV2Obj, secondV2Obj, firstRow, secondRow;
+
+      beforeEach.async(async () => {
+        firstV2Obj = {metadata: {guid: 'guid-1'}, entity: {name: 'name-1'}};
+        secondV2Obj = {metadata: {guid: 'guid-2'}, entity: {name: 'name-2'}};
+        const v2Objects = [firstV2Obj, secondV2Obj];
+        firstRow = jasmine.createSpy('row-1');
+        secondRow = jasmine.createSpy('row-2');
+        ServerHelper.toV2Object.and.returnValue(v2Objects.shift());
+        knexHelper.tableCount.and.returnValue(Promise.resolve(2));
+        knexHelper.streamPage.and.callFake(({write}) => (write(firstRow), write(secondRow), Promise.resolve()));
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {}}, res);
+      });
+
+      it('gets total results', () => {
+        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
+      });
+
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
+          from,
+          page: 1,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          write: jasmine.any(Function)
         });
       });
 
-      it('writes the end of the json object', () => {
-        expect(res.write).toHaveBeenCalledWith(']}');
+      it('converts the row to a v2 object', () => {
+        expect(ServerHelper.toV2Object).toHaveBeenCalledWith({from, row: firstRow});
+        expect(ServerHelper.toV2Object).toHaveBeenCalledWith({from, row: secondRow});
       });
 
-      it('releases the connection', () => {
-        expect(connection.release).toHaveBeenCalledWith();
+      it('writes the header and first row', () => {
+        expect(res.write).toHaveBeenCalledWith(`{"total_results":2,"total_pages":1,"prev_url":null,"next_url":null,"resources":[${JSON.stringify(firstV2Obj)}`);
       });
 
-      it('ends the response', () => {
-        expect(res.end).toHaveBeenCalledWith();
+      it('writes a comma and second row', () => {
+        expect(res.write).toHaveBeenCalledWith(`,${JSON.stringify(firstV2Obj)}`);
+      });
+
+      it('ends the response with the end of the envelope', () => {
+        expect(res.end).toHaveBeenCalledWith(']}');
       });
     });
   });
 
   describe('requireMetadata', () => {
-    let next;
-
-    beforeEach(() => {
-      next = jasmine.createSpy('next');
-    });
-
     describe('without metadata', () => {
       beforeEach(() => {
         Middlewares.new({}).requireMetadata({params: {}}, null, next);
@@ -734,6 +369,20 @@ describe('Middlewares', () => {
       it('calls the next metadata', () => {
         expect(next).toHaveBeenCalledWith(false);
       });
+    });
+  });
+
+  describe('setJsonContenType', () => {
+    beforeEach(() => {
+      Middlewares.new({}).setJsonContentType(null, res, next);
+    });
+
+    it('sets the response content type', () => {
+      expect(res.set).toHaveBeenCalledWith('Content-Type', 'application/json');
+    });
+
+    it('calls the next middleware', () => {
+      expect(next).toHaveBeenCalledWith();
     });
   });
 });

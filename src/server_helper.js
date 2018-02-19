@@ -1,14 +1,14 @@
 const metadata = require('./metadata');
 
-const boolean = ({from, column, row}) => !!row[from][column];
-const raw = ({from, column, row}) => row[from][column];
+const boolean = ({from, column, row}) => !!row[`${from}.${column}`];
+const raw = ({from, column, row}) => row[`${from}.${column}`];
 const types = {boolean, raw};
 
-const newMetadata = ({guid, from, created_at, updated_at}) => ({
-  guid,
-  url: `/v2/${from}/${guid}`,
-  created_at,
-  updated_at
+const newMetadata = ({row, from}) => ({
+  guid: row[`${from}.guid`],
+  url: `/v2/${from}/${row[`${from}.guid`]}`,
+  created_at: row[`${from}.created_at`],
+  updated_at: row[`${from}.updated_at`]
 });
 
 const newEntity = ({from, row}) => {
@@ -20,9 +20,6 @@ const newEntity = ({from, row}) => {
   return entity;
 };
 
-const writeRow = ({prefix = '', row, from}) => write => write(`${prefix}${JSON.stringify({
-  metadata: newMetadata({...row[from], from}),
-  entity: newEntity({from, row})
-})}`);
+const toV2Object = args => ({metadata: newMetadata(args), entity: newEntity(args)});
 
-module.exports = {writeRow};
+module.exports = {toV2Object};

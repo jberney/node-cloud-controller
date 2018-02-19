@@ -1,17 +1,19 @@
 require('./spec_helper');
 
 describe('Index', () => {
-  let express, mysql, Middlewares, MySqlDriver, Server, pool, middlewares, server, host, user, password, database, info;
+  let express, KnexHelper, Middlewares, Server, knex, knexHelper, middlewares, server, host, user, password, database,
+    info;
 
   beforeAll(() => {
     express = require('express');
-    mysql = require('mysql');
+    KnexHelper = require('../src/knex_helper');
     Middlewares = require('../src/middlewares');
-    MySqlDriver = require('../src/mysql_driver');
     Server = require('../src/server');
 
-    pool = jasmine.createSpy('pool');
-    spyOn(mysql, 'createPool').and.returnValue(pool);
+    knex = jasmine.createSpy('knex');
+    spyOn(KnexHelper, 'knex').and.returnValue(knex);
+    knexHelper = jasmine.createSpy('knexHelper');
+    spyOn(KnexHelper, 'new').and.returnValue(knexHelper);
 
     middlewares = jasmine.createSpy('middlewares');
     spyOn(Middlewares, 'new').and.returnValue(middlewares);
@@ -38,12 +40,16 @@ describe('Index', () => {
     require('../src/index');
   });
 
-  it('creates a mysql pool', () => {
-    expect(mysql.createPool).toHaveBeenCalledWith({host, user, password, database});
+  it('initializes knex', () => {
+    expect(KnexHelper.knex).toHaveBeenCalledWith({client: 'mysql2', connection: {host, user, password, database}});
+  });
+
+  it('creates knexHelper', () => {
+    expect(KnexHelper.new).toHaveBeenCalledWith(knex);
   });
 
   it('creates middlewares', () => {
-    expect(Middlewares.new).toHaveBeenCalledWith({info, pool, SqlDriver: MySqlDriver});
+    expect(Middlewares.new).toHaveBeenCalledWith({info, knexHelper});
   });
 
   it('creates a server', () => {

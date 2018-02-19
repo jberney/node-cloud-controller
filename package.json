@@ -13,7 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.2",
-    "mysql": "^2.15.0"
+    "knex": "^0.14.3",
+    "mysql2": "^1.5.2"
   },
   "devDependencies": {
     "babel-eslint": "^8.2.1",
