@@ -125,7 +125,7 @@ describe('MySqlDriver', () => {
 
     it('queries the database', () => {
       expect(connection.query).toHaveBeenCalledWith({
-        sql: `SELECT * FROM \`${from}\` LEFT JOIN \`quota_definitions\` ON \`${from}\`.\`quota_definition_id\` = \`quota_definitions\`.\`id\` LIMIT 100`,
+        sql: `SELECT \`organizations\`.\`name\`,\`organizations\`.\`billing_enabled\`,\`quota_definitions\`.\`guid\`,\`organizations\`.\`status\`,\`organizations\`.\`guid\` FROM \`${from}\` LEFT JOIN \`quota_definitions\` ON \`${from}\`.\`quota_definition_id\` = \`quota_definitions\`.\`id\` LIMIT 100`,
         nestTables: true
       });
     });

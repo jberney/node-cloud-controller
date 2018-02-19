@@ -14,6 +14,12 @@ describe('QueryBuilder', () => {
       });
     });
 
+    describe('with columns', () => {
+      it('returns sql', () => {
+        expect(QueryBuilder.select(['from-table.from-key']).from('from-table').build()).toBe('SELECT `from-table`.`from-key` FROM `from-table`');
+      });
+    });
+
     describe('with a leftJoin', () => {
       it('returns sql', () => {
         expect(QueryBuilder.select().from('from-table')

@@ -2,6 +2,9 @@ const metadata = require('./metadata');
 const ServerHelper = require('./server_helper');
 const QueryBuilder = require('./query_builder');
 
+const columns = from => Object.entries(metadata[from].entity)
+  .map(([key, {foreignTable, column}]) => `${foreignTable || from}.${column || key}`)
+  .filter((value, i, self) => self.indexOf(value) === i);
 const leftJoins = from => Object.values(metadata[from].entity)
   .filter(({foreignTable}) => foreignTable)
   .reduce((memo, {foreignTable}) => memo.indexOf(foreignTable) === -1 ? [...memo, foreignTable] : memo, [])
@@ -17,7 +20,7 @@ module.exports = {
   writeRows: async ({connection, from, perPage = 100, orderBy, orderDir, res}) => {
     let prefix;
     const result = row => (writeRow({connection, res, prefix, row, from}), prefix = ',');
-    const sql = QueryBuilder.select().from(from)
+    const sql = QueryBuilder.select(columns(from)).from(from)
       .leftJoins(leftJoins(from))
       .limit(perPage)
       .orderBy(orderBy, orderDir)
