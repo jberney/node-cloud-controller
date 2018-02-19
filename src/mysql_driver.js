@@ -17,14 +17,28 @@ const writeRow = ({connection, res, ...rest}) => pauseWriteResume({connection, r
 module.exports = {
   count: async ({connection, from}) => (await query(connection, 'SELECT COUNT(*) AS count FROM ??', [from]))[0].count,
   getConnection: pool => new Promise((res, rej) => pool.getConnection((e, connection) => e ? rej(e) : res(connection))),
-  writeRows: async ({connection, from, perPage = 100, orderBy, orderDir, res}) => {
+  writeRows: async ({connection, from, page = 1, perPage = 100, orderBy = 'id', orderDir = 'asc', res}) => {
     let prefix;
     const result = row => (writeRow({connection, res, prefix, row, from}), prefix = ',');
-    const sql = QueryBuilder.select(columns(from)).from(from)
-      .leftJoins(leftJoins(from))
-      .limit(perPage)
+    const leftJoinsFrom = leftJoins(from);
+
+    let sql = QueryBuilder.select(columns(from)).from(from)
+      .leftJoins(leftJoinsFrom)
       .orderBy(orderBy, orderDir)
-      .build();
-    await queryStream(connection, result, {sql, nestTables: true});
+      .limit(perPage);
+
+    if (page > 1) {
+      const [{id}] = await query(connection, {
+        sql: QueryBuilder.select(['organizations.id']).from(from)
+          .leftJoins(leftJoinsFrom)
+          .orderBy(orderBy, orderDir)
+          .limit(1)
+          .offset(perPage * (page - 1) - 1)
+          .build()
+      });
+      sql = sql.where(`${from}.id`, '>', id);
+    }
+
+    await queryStream(connection, result, {sql: sql.build(), nestTables: true});
   }
 };

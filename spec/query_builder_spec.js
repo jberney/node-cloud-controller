@@ -41,6 +41,15 @@ describe('QueryBuilder', () => {
       });
     });
 
+    describe('with a where', () => {
+      it('returns sql', () => {
+        expect(QueryBuilder.select().from('from-table')
+          .where('from-table.from-key', '>', 99)
+          .build())
+          .toBe('SELECT * FROM `from-table` WHERE `from-table`.`from-key` > 99');
+      });
+    });
+
     describe('with an orderBy', () => {
       it('returns sql', () => {
         expect(QueryBuilder.select().from('from-table')
@@ -74,6 +83,15 @@ describe('QueryBuilder', () => {
           .limit(100)
           .build())
           .toBe('SELECT * FROM `from-table` LIMIT 100');
+      });
+    });
+
+    describe('with an offset', () => {
+      it('returns sql', () => {
+        expect(QueryBuilder.select().from('from-table')
+          .offset(99)
+          .build())
+          .toBe('SELECT * FROM `from-table` OFFSET 99');
       });
     });
   });
