@@ -11,22 +11,38 @@ const leftJoins = from => Object.values(metadata[from].entity)
   .reduce((memo, {foreignTable}) => memo.indexOf(foreignTable) === -1 ? [...memo, foreignTable] : memo, [])
   .map(foreignTable => ([foreignTable, `${from}.${foreignTable.replace(/s$/, '')}_id`, `${foreignTable}.id`]));
 
+const filters = ({from, q, query}) => {
+  if (!q) return;
+  const [filter, operator, value] = q;
+  if (operator === ':') query.where(`${from}.${filter}`, value);
+  else if (operator === ' IN ') query.whereIn(`${from}.${filter}`, value.split(','));
+  else if (['>=', '<=', '<', '>'].indexOf(operator) !== -1) query.where(`${from}.${filter}`, operator, +value);
+};
+
 module.exports = ({
   knex,
   new: knex => ({
-    streamPage: async ({from, page, perPage, orderBy, orderDir, write}) => {
-      let query = knex.select(columns(from)).from(from).orderBy(orderBy, orderDir).limit(perPage);
+    streamPage: async ({from, q, page, perPage, orderBy, orderDir, write}) => {
+      const query = knex.select(columns(from)).from(from).orderBy(orderBy, orderDir).limit(perPage);
 
       const leftJoinsFrom = leftJoins(from);
-      leftJoinsFrom.forEach(leftJoin => query = query.leftJoin(...leftJoin));
+      leftJoinsFrom.forEach(leftJoin => query.leftJoin(...leftJoin));
+
+      filters({from, q, query});
 
       if (page > 1) {
-        const [result] = await knex.select('id').from(from).orderBy(orderBy, orderDir).limit(1).offset(perPage * (page - 1) - 1);
-        query = query.where(`${from}.id`, '>', result ? result.id : null);
+        const prevIdQuery = knex.select('id').from(from).orderBy(orderBy, orderDir).limit(1).offset(perPage * (page - 1) - 1);
+        filters({from, q, query: prevIdQuery});
+        const [result] = await prevIdQuery;
+        query.where(`${from}.id`, '>', result ? result.id : null);
       }
 
       await query.stream(stream => stream.pipe(StreamHelper.newWritableStream(write)));
     },
-    tableCount: async table => (await knex(table).count('id as count'))[0].count,
+    tableCount: async ({from, q}) => {
+      const query = knex(from).count('id as count');
+      filters({from, q, query});
+      return (await query)[0].count;
+    }
   })
 });

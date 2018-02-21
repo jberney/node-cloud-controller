@@ -99,7 +99,7 @@ describe('Middlewares', () => {
       });
 
       it('gets total results', () => {
-        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
+        expect(knexHelper.tableCount).toHaveBeenCalledWith({from, q: null});
       });
 
       it('ends the response with an empty envelope', () => {
@@ -120,12 +120,13 @@ describe('Middlewares', () => {
       });
 
       it('gets total results', () => {
-        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
+        expect(knexHelper.tableCount).toHaveBeenCalledWith({from, q: null});
       });
 
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -149,6 +150,46 @@ describe('Middlewares', () => {
       });
     });
 
+    describe('with a valid query', () => {
+      beforeEach.async(async () => {
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {q: 'id:1'}}, res);
+      });
+
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
+          from,
+          q: ['id', ':', '1'],
+          page: 1,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          write: jasmine.any(Function)
+        });
+      });
+    });
+
+    describe('with an invalid query', () => {
+      beforeEach.async(async () => {
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {q: 'id:'}}, res);
+      });
+
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
+          from,
+          q: null,
+          page: 1,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          write: jasmine.any(Function)
+        });
+      });
+    });
+
     describe('with a valid page', () => {
       beforeEach.async(async () => {
         knexHelper.tableCount.and.returnValue(Promise.resolve(1));
@@ -159,6 +200,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 2,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -178,6 +220,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -197,6 +240,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 50,
           orderBy: 'organizations.id',
@@ -216,6 +260,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -235,6 +280,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.name',
@@ -254,6 +300,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -273,6 +320,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -292,6 +340,7 @@ describe('Middlewares', () => {
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',
@@ -317,12 +366,13 @@ describe('Middlewares', () => {
       });
 
       it('gets total results', () => {
-        expect(knexHelper.tableCount).toHaveBeenCalledWith(from);
+        expect(knexHelper.tableCount).toHaveBeenCalledWith({from, q: null});
       });
 
       it('streams the page', () => {
         expect(knexHelper.streamPage).toHaveBeenCalledWith({
           from,
+          q: null,
           page: 1,
           perPage: 100,
           orderBy: 'organizations.id',

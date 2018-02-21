@@ -44,6 +44,7 @@ describe('KnexHelper', () => {
         beforeEach.async(async () => {
           await knexHelper.streamPage({
             from: 'organizations',
+            q: ['id', '>', '123'],
             page: 1,
             perPage: 100,
             orderBy: 'organizations.id',
@@ -80,6 +81,10 @@ describe('KnexHelper', () => {
           expect(query.leftJoin).toHaveBeenCalledWith('quota_definitions', 'organizations.quota_definition_id', 'quota_definitions.id');
         });
 
+        it('filters', () => {
+          expect(query.where).toHaveBeenCalledWith('organizations.id', '>', 123);
+        });
+
         it('streams the query', () => {
           expect(query.stream).toHaveBeenCalledWith(jasmine.any(Function));
         });
@@ -94,16 +99,19 @@ describe('KnexHelper', () => {
       });
 
       describe('page > #1', () => {
-        let prevIdQuery;
+        let prevIdQuery, promise;
 
         beforeEach.async(async () => {
           const prevIdQueryMethods = ['from', 'limit', 'offset', 'orderBy'];
           prevIdQuery = jasmine.createSpyObj('query', prevIdQueryMethods);
           prevIdQueryMethods.forEach(method => prevIdQuery[method].and.returnValue(prevIdQuery));
-          prevIdQuery.offset.and.returnValue(Promise.resolve([{id: 100}]));
+          promise = Promise.resolve([{id: 223}]);
+          promise.where = jasmine.createSpy('where');
+          prevIdQuery.offset.and.returnValue(promise);
           knex.select.and.callFake(cols => cols === 'id' ? prevIdQuery : query);
           await knexHelper.streamPage({
             from: 'organizations',
+            q: ['id', '>', '123'],
             page: 2,
             perPage: 100,
             orderBy: 'organizations.id',
@@ -130,6 +138,10 @@ describe('KnexHelper', () => {
 
         it('offsets the result set for the prev id query', () => {
           expect(prevIdQuery.offset).toHaveBeenCalledWith(99);
+        });
+
+        it('filters prev id query', () => {
+          expect(promise.where).toHaveBeenCalledWith('organizations.id', '>', 123);
         });
 
         it('selects columns', () => {
@@ -161,7 +173,7 @@ describe('KnexHelper', () => {
         });
 
         it('filters the result set', () => {
-          expect(query.where).toHaveBeenCalledWith('organizations.id', '>', 100);
+          expect(query.where).toHaveBeenCalledWith('organizations.id', '>', 223);
         });
 
         it('streams the query', () => {
@@ -178,16 +190,19 @@ describe('KnexHelper', () => {
       });
 
       describe('page > total pages', () => {
-        let prevIdQuery;
+        let prevIdQuery, promise;
 
         beforeEach.async(async () => {
           const prevIdQueryMethods = ['from', 'limit', 'offset', 'orderBy'];
           prevIdQuery = jasmine.createSpyObj('query', prevIdQueryMethods);
           prevIdQueryMethods.forEach(method => prevIdQuery[method].and.returnValue(prevIdQuery));
-          prevIdQuery.offset.and.returnValue(Promise.resolve([]));
+          promise = Promise.resolve([]);
+          promise.where = jasmine.createSpy('where');
+          prevIdQuery.offset.and.returnValue(promise);
           knex.select.and.callFake(cols => cols === 'id' ? prevIdQuery : query);
           await knexHelper.streamPage({
             from: 'organizations',
+            q: ['id', '>', '123'],
             page: 3,
             perPage: 100,
             orderBy: 'organizations.id',
@@ -214,6 +229,10 @@ describe('KnexHelper', () => {
 
         it('offsets the result set for the prev id query', () => {
           expect(prevIdQuery.offset).toHaveBeenCalledWith(199);
+        });
+
+        it('filters prev id query', () => {
+          expect(promise.where).toHaveBeenCalledWith('organizations.id', '>', 123);
         });
 
         it('selects columns', () => {
@@ -263,25 +282,125 @@ describe('KnexHelper', () => {
     });
 
     describe('tableCount', () => {
-      let counter, actual;
+      let counter, promise, actual;
 
       beforeEach.async(async () => {
         counter = jasmine.createSpyObj('counter', ['count']);
-        counter.count.and.returnValue(Promise.resolve([{count: 123}]));
         knex.and.returnValue(counter);
-        actual = await knexHelper.tableCount('some-table');
+        promise = Promise.resolve([{count: 123}]);
+        promise.where = jasmine.createSpy('where');
+        promise.whereIn = jasmine.createSpy('whereIn');
+        counter.count.and.returnValue(promise);
       });
 
-      it('selects on the table', () => {
-        expect(knex).toHaveBeenCalledWith('some-table');
+      describe('without filters', () => {
+        beforeEach.async(async () => {
+          actual = await knexHelper.tableCount({from: 'some-table'});
+        });
+
+        it('selects on the table', () => {
+          expect(knex).toHaveBeenCalledWith('some-table');
+        });
+
+        it('counts id as count', () => {
+          expect(counter.count).toHaveBeenCalledWith('id as count');
+        });
+
+        it('does not filter', () => {
+          expect(promise.where).not.toHaveBeenCalled();
+        });
+
+        it('returns the count', () => {
+          expect(actual).toBe(123);
+        });
       });
 
-      it('counts is as count', () => {
-        expect(counter.count).toHaveBeenCalledWith('id as count');
+      describe('with a ":" filter', () => {
+        beforeEach.async(async () => {
+          actual = await knexHelper.tableCount({from: 'some-table', q: ['filter', ':', 'value']});
+        });
+
+        it('selects on the table', () => {
+          expect(knex).toHaveBeenCalledWith('some-table');
+        });
+
+        it('counts id as count', () => {
+          expect(counter.count).toHaveBeenCalledWith('id as count');
+        });
+
+        it('filters', () => {
+          expect(promise.where).toHaveBeenCalledWith('some-table.filter', 'value');
+        });
+
+        it('returns the count', () => {
+          expect(actual).toBe(123);
+        });
       });
 
-      it('returns the count', () => {
-        expect(actual).toBe(123);
+      describe('with a ":" filter', () => {
+        beforeEach.async(async () => {
+          actual = await knexHelper.tableCount({from: 'some-table', q: ['filter', ' IN ', 'value1,value2']});
+        });
+
+        it('selects on the table', () => {
+          expect(knex).toHaveBeenCalledWith('some-table');
+        });
+
+        it('counts id as count', () => {
+          expect(counter.count).toHaveBeenCalledWith('id as count');
+        });
+
+        it('filters', () => {
+          expect(promise.whereIn).toHaveBeenCalledWith('some-table.filter', ['value1', 'value2']);
+        });
+
+        it('returns the count', () => {
+          expect(actual).toBe(123);
+        });
+      });
+
+      describe('with a mathematical comparison filter', () => {
+        beforeEach.async(async () => {
+          actual = await knexHelper.tableCount({from: 'some-table', q: ['filter', '>', '32']});
+        });
+
+        it('selects on the table', () => {
+          expect(knex).toHaveBeenCalledWith('some-table');
+        });
+
+        it('counts id as count', () => {
+          expect(counter.count).toHaveBeenCalledWith('id as count');
+        });
+
+        it('filters', () => {
+          expect(promise.where).toHaveBeenCalledWith('some-table.filter', '>', 32);
+        });
+
+        it('returns the count', () => {
+          expect(actual).toBe(123);
+        });
+      });
+
+      describe('with an invalid filter', () => {
+        beforeEach.async(async () => {
+          actual = await knexHelper.tableCount({from: 'some-table', q: ['filter', 'invalid-operator', 'value']});
+        });
+
+        it('selects on the table', () => {
+          expect(knex).toHaveBeenCalledWith('some-table');
+        });
+
+        it('counts id as count', () => {
+          expect(counter.count).toHaveBeenCalledWith('id as count');
+        });
+
+        it('does not filter', () => {
+          expect(promise.where).not.toHaveBeenCalled();
+        });
+
+        it('returns the count', () => {
+          expect(actual).toBe(123);
+        });
       });
     });
   });
