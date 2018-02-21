@@ -98,7 +98,7 @@ describe('KnexHelper', () => {
         });
       });
 
-      describe('page > #1', () => {
+      describe('page > #1 (asc)', () => {
         let prevIdQuery, promise;
 
         beforeEach.async(async () => {
@@ -108,7 +108,7 @@ describe('KnexHelper', () => {
           promise = Promise.resolve([{id: 223}]);
           promise.where = jasmine.createSpy('where');
           prevIdQuery.offset.and.returnValue(promise);
-          knex.select.and.callFake(cols => cols === 'id' ? prevIdQuery : query);
+          knex.select.and.callFake(cols => typeof cols === 'string' ? prevIdQuery : query);
           await knexHelper.streamPage({
             from: 'organizations',
             q: ['id', '>', '123'],
@@ -121,7 +121,7 @@ describe('KnexHelper', () => {
         });
 
         it('selects a column for the prev id query', () => {
-          expect(knex.select).toHaveBeenCalledWith('id');
+          expect(knex.select).toHaveBeenCalledWith('organizations.id');
         });
 
         it('selects from the table for the prev id query', () => {
@@ -189,6 +189,97 @@ describe('KnexHelper', () => {
         });
       });
 
+      describe('page > #1 (desc)', () => {
+        let prevIdQuery, promise;
+
+        beforeEach.async(async () => {
+          const prevIdQueryMethods = ['from', 'limit', 'offset', 'orderBy'];
+          prevIdQuery = jasmine.createSpyObj('query', prevIdQueryMethods);
+          prevIdQueryMethods.forEach(method => prevIdQuery[method].and.returnValue(prevIdQuery));
+          promise = Promise.resolve([{id: 223}]);
+          promise.where = jasmine.createSpy('where');
+          prevIdQuery.offset.and.returnValue(promise);
+          knex.select.and.callFake(cols => typeof cols === 'string' ? prevIdQuery : query);
+          await knexHelper.streamPage({
+            from: 'organizations',
+            q: ['id', '>', '123'],
+            page: 2,
+            perPage: 100,
+            orderBy: 'organizations.id',
+            orderDir: 'desc',
+            write
+          });
+        });
+
+        it('selects a column for the prev id query', () => {
+          expect(knex.select).toHaveBeenCalledWith('organizations.id');
+        });
+
+        it('selects from the table for the prev id query', () => {
+          expect(prevIdQuery.from).toHaveBeenCalledWith('organizations');
+        });
+
+        it('orders results by a column with a direction for the prev id query', () => {
+          expect(prevIdQuery.orderBy).toHaveBeenCalledWith('organizations.id', 'desc');
+        });
+
+        it('limits the result set for the prev id query', () => {
+          expect(prevIdQuery.limit).toHaveBeenCalledWith(1);
+        });
+
+        it('offsets the result set for the prev id query', () => {
+          expect(prevIdQuery.offset).toHaveBeenCalledWith(99);
+        });
+
+        it('filters prev id query', () => {
+          expect(promise.where).toHaveBeenCalledWith('organizations.id', '>', 123);
+        });
+
+        it('selects columns', () => {
+          expect(knex.select).toHaveBeenCalledWith({
+            'organizations.name': 'organizations.name',
+            'organizations.billing_enabled': 'organizations.billing_enabled',
+            'quota_definitions.guid': 'quota_definitions.guid',
+            'organizations.status': 'organizations.status',
+            'organizations.guid': 'organizations.guid',
+            'organizations.created_at': 'organizations.created_at',
+            'organizations.updated_at': 'organizations.updated_at'
+          });
+        });
+
+        it('selects from the table', () => {
+          expect(query.from).toHaveBeenCalledWith('organizations');
+        });
+
+        it('orders results by a column with a direction', () => {
+          expect(query.orderBy).toHaveBeenCalledWith('organizations.id', 'desc');
+        });
+
+        it('limits the result set', () => {
+          expect(query.limit).toHaveBeenCalledWith(100);
+        });
+
+        it('left joins', () => {
+          expect(query.leftJoin).toHaveBeenCalledWith('quota_definitions', 'organizations.quota_definition_id', 'quota_definitions.id');
+        });
+
+        it('filters the result set', () => {
+          expect(query.where).toHaveBeenCalledWith('organizations.id', '<', 223);
+        });
+
+        it('streams the query', () => {
+          expect(query.stream).toHaveBeenCalledWith(jasmine.any(Function));
+        });
+
+        it('creates a new writable stream', () => {
+          expect(StreamHelper.newWritableStream).toHaveBeenCalledWith(write);
+        });
+
+        it('pipes the readable stream to the writable stream', () => {
+          expect(readableStream.pipe).toHaveBeenCalledWith(writableStream);
+        });
+      });
+
       describe('page > total pages', () => {
         let prevIdQuery, promise;
 
@@ -199,7 +290,7 @@ describe('KnexHelper', () => {
           promise = Promise.resolve([]);
           promise.where = jasmine.createSpy('where');
           prevIdQuery.offset.and.returnValue(promise);
-          knex.select.and.callFake(cols => cols === 'id' ? prevIdQuery : query);
+          knex.select.and.callFake(cols => typeof cols === 'string' ? prevIdQuery : query);
           await knexHelper.streamPage({
             from: 'organizations',
             q: ['id', '>', '123'],
@@ -212,7 +303,7 @@ describe('KnexHelper', () => {
         });
 
         it('selects a column for the prev id query', () => {
-          expect(knex.select).toHaveBeenCalledWith('id');
+          expect(knex.select).toHaveBeenCalledWith('organizations.id');
         });
 
         it('selects from the table for the prev id query', () => {

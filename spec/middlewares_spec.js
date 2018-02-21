@@ -210,7 +210,7 @@ describe('Middlewares', () => {
       });
     });
 
-    describe('with an invalid page', () => {
+    describe('with an invalid page (too low)', () => {
       beforeEach.async(async () => {
         knexHelper.tableCount.and.returnValue(Promise.resolve(1));
         knexHelper.streamPage.and.returnValue(Promise.resolve());
@@ -227,6 +227,31 @@ describe('Middlewares', () => {
           orderDir: 'asc',
           write: jasmine.any(Function)
         });
+      });
+    });
+
+    describe('with an invalid page (too high)', () => {
+      beforeEach.async(async () => {
+        knexHelper.tableCount.and.returnValue(Promise.resolve(1));
+        knexHelper.streamPage.and.returnValue(Promise.resolve());
+        await Middlewares.new({knexHelper}).listAll({params: {from}, query: {page: '2'}}, res);
+      });
+
+      it('streams the page', () => {
+        expect(knexHelper.streamPage).toHaveBeenCalledWith({
+          from,
+          q: null,
+          page: 2,
+          perPage: 100,
+          orderBy: 'organizations.id',
+          orderDir: 'asc',
+          write: jasmine.any(Function)
+        });
+      });
+
+      it('ends the response with an empty envelope', () => {
+        expect(res.end)
+          .toHaveBeenCalledWith('{"total_results":1,"total_pages":1,"prev_url":null,"next_url":null,"resources":[]}');
       });
     });
 

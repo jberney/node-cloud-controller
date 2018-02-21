@@ -38,7 +38,7 @@ module.exports = ({
       const write = row =>
         (res.write(`${prefix}${JSON.stringify(ServerHelper.toV2Object({from, row}))}`), prefix = ',');
       await knexHelper.streamPage({from, q, page, perPage, orderBy, orderDir, write});
-      res.end(envelope.substr(-2));
+      res.end(prefix === ',' ? envelope.substr(-2) : envelope);
     },
     requireMetadata: ({params: {from}}, res, next) => next(!metadata[from] && 'route'),
     setJsonContentType: (req, res, next) => (res.set('Content-Type', 'application/json'), next())

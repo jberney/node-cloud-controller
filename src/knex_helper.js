@@ -31,10 +31,10 @@ module.exports = ({
       filters({from, q, query});
 
       if (page > 1) {
-        const prevIdQuery = knex.select('id').from(from).orderBy(orderBy, orderDir).limit(1).offset(perPage * (page - 1) - 1);
-        filters({from, q, query: prevIdQuery});
-        const [result] = await prevIdQuery;
-        query.where(`${from}.id`, '>', result ? result.id : null);
+        const seekQuery = knex.select(orderBy).from(from).orderBy(orderBy, orderDir).limit(1).offset(perPage * (page - 1) - 1);
+        filters({from, q, query: seekQuery});
+        const [result] = await seekQuery;
+        query.where(orderBy, orderDir === 'asc' ? '>' : '<', result ? result[orderBy.split('.').pop()] : null);
       }
 
       await query.stream(stream => stream.pipe(StreamHelper.newWritableStream(write)));
